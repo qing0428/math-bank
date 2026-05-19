@@ -1,0 +1,7 @@
+services:
+  mathbank:
+    build: .
+    container_name: mathbank
+    ports:
+      - "3080:80"
+    restart: unless-stopped
