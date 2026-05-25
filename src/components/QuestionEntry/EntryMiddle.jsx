@@ -61,8 +61,19 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
   const pickSuggestedTag = (tag) => {
     // Remove from suggestions
     setSuggestedTags(prev => prev.filter(t => t !== tag))
-    // Add to input
-    setTagInput(prev => prev ? `${prev}; ${tag}` : tag)
+    // Add directly to question tags
+    const merged = [...new Set([...(question.tags || []), tag])]
+    update('tags', merged)
+  }
+
+  const toggleTag = (tag) => {
+    const added = (question.tags || []).includes(tag)
+    if (added) {
+      removeTag(tag)
+    } else {
+      const merged = [...new Set([...(question.tags || []), tag])]
+      update('tags', merged)
+    }
   }
 
   const handleAutoTag = async () => {
@@ -221,32 +232,44 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
           </button>
         </div>
 
-        {/* Preset tags — always visible */}
+        {/* Preset tags — always visible, click to toggle */}
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {PRESET_TAGS.filter(t => !(question.tags || []).includes(t)).map(tag => (
-            <button
-              key={tag}
-              onClick={() => pickSuggestedTag(tag)}
-              className="inline-flex items-center px-2.5 py-1 rounded-full border border-dashed border-gray-300 bg-gray-50 text-gray-500 text-xs hover:bg-primary-50 hover:border-primary-300 hover:text-primary-600 transition-colors cursor-pointer"
-            >
-              + {tag}
-            </button>
-          ))}
+          {PRESET_TAGS.map(tag => {
+            const added = (question.tags || []).includes(tag)
+            return (
+              <button
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs transition-colors cursor-pointer
+                  ${added
+                    ? 'border border-primary-300 bg-primary-50 text-primary-600 hover:bg-red-50 hover:border-red-300 hover:text-red-500'
+                    : 'border border-dashed border-gray-300 bg-gray-50 text-gray-500 hover:bg-primary-50 hover:border-primary-300 hover:text-primary-600'}`}
+              >
+                {added ? `× ${tag}` : `+ ${tag}`}
+              </button>
+            )
+          })}
         </div>
 
         {/* AI suggested tags */}
         {suggestedTags.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             <span className="text-xs text-gray-400">AI 建议：</span>
-            {suggestedTags.map(tag => (
-              <button
-                key={tag}
-                onClick={() => pickSuggestedTag(tag)}
-                className="inline-flex items-center px-2.5 py-1 rounded-full border border-dashed border-purple-300 bg-purple-50 text-purple-600 text-xs hover:bg-purple-100 hover:border-purple-400 transition-colors cursor-pointer"
-              >
-                + {tag}
-              </button>
-            ))}
+            {suggestedTags.map(tag => {
+              const added = (question.tags || []).includes(tag)
+              return (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs transition-colors cursor-pointer
+                    ${added
+                      ? 'border border-purple-300 bg-purple-100 text-purple-600 hover:bg-red-50 hover:border-red-300 hover:text-red-500'
+                      : 'border border-dashed border-purple-300 bg-purple-50 text-purple-600 hover:bg-purple-100 hover:border-purple-400'}`}
+                >
+                  {added ? `× ${tag}` : `+ ${tag}`}
+                </button>
+              )
+            })}
           </div>
         )}
 
