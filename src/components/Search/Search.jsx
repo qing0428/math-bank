@@ -50,7 +50,7 @@ export default function Search({ questions, setQuestions }) {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="mb-6">
-        <h2 className="font-heading text-2xl font-bold text-text">三级查找</h2>
+        <h2 className="font-heading text-2xl font-bold text-text">题库</h2>
         <p className="text-gray-500 text-sm mt-1">按年级、知识板块、难度、标签等维度自由组合筛选</p>
       </div>
 
