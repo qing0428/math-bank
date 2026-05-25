@@ -627,13 +627,17 @@ export async function recognizeBatchImage(files, config, onProgress) {
             tags: Array.isArray(q.tags) ? q.tags : [],
           }))
         }
-      } catch {
+        if (Array.isArray(parsed) && parsed.length === 0) {
+          throw new Error('API 返回空数组，未识别到任何题目。请确认图片清晰且包含数学题目')
+        }
+      } catch (parseErr) {
+        if (parseErr.message.includes('未识别到任何题目')) throw parseErr
         // JSON truncated — try fixing by appending closing brackets
         let fixed = jsonStr
         // Remove trailing comma before attempting to close
         fixed = fixed.replace(/,\s*$/, '')
-        // Try adding ] at the end
-        for (const suffix of [']', '"}]', '"}]']) {
+        // Try adding ] or partial closing (skip bare ] which just gives empty array)
+        for (const suffix of ['"}]', '}]']) {
           try {
             const parsed = JSON.parse(fixed + suffix)
             if (Array.isArray(parsed) && parsed.length > 0) {
@@ -656,7 +660,10 @@ export async function recognizeBatchImage(files, config, onProgress) {
     console.warn('[recognizeBatchImage] JSON parse failed:', err.message)
   }
 
-  // Fallback: return raw text as single question
+  // Fallback: return raw text as single question (but not empty brackets)
+  if (text.trim() === '[]' || text.trim() === '[ ]') {
+    throw new Error('API 返回空数组，未识别到任何题目。请确认图片清晰且包含数学题目')
+  }
   console.warn('[recognizeBatchImage] Falling back to raw text, length:', text.length)
   return [{ content: text, answer: '', grade: '', topic: '', tags: [] }]
 }
