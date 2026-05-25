@@ -59,3 +59,13 @@ export function stripMarkdown(text) {
 
   return result.trim()
 }
+
+/**
+ * Strip leading question numbers from content.
+ * Handles: "1." "13." "一、" "(1)" "1)" "①" etc.
+ */
+export function stripQuestionNumber(text) {
+  if (!text) return ''
+  // Match common question number patterns at the start
+  return text.replace(/^\s*(?:\d+[\.\、\．]|\(\d+\)|\d+\)|[一二三四五六七八九十]+[\.\、]|\d+\s*[\.．])\s*/, '')
+}

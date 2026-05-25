@@ -13,6 +13,11 @@ export const TOPICS = [
   '排列组合', '概率', '统计', '复数', '算法初步',
 ]
 
+export const QUESTION_TYPES = [
+  '选择题', '判断题', '填空题', '画图题',
+  '解决问题', '计算题', '证明题', '解答题',
+]
+
 export function createQuestion(data = {}) {
   const now = Date.now()
   return {
@@ -22,6 +27,7 @@ export function createQuestion(data = {}) {
     solution: data.solution || '',
     grade: data.grade || '',
     topic: data.topic || '',
+    questionType: data.questionType || '',
     difficulty: data.difficulty || 3,
     tags: data.tags || [],
     notes: data.notes || '',

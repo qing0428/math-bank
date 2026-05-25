@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import StarRating from './StarRating'
-import { GRADES, TOPICS } from '../../store/questionStore'
+import { GRADES, TOPICS, QUESTION_TYPES } from '../../store/questionStore'
 import { generateSolution, autoTag } from '../../services/llmService'
 import MixedContent from '../common/MixedContent'
 
@@ -176,8 +176,8 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
         </div>
       )}
 
-      {/* Grade & Topic */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Grade & Topic & Type */}
+      <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">年级</label>
           <select
@@ -198,6 +198,17 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
           >
             <option value="">选择板块</option>
             {TOPICS.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">题目类型</label>
+          <select
+            value={question.questionType || ''}
+            onChange={(e) => update('questionType', e.target.value)}
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500"
+          >
+            <option value="">选择类型</option>
+            {QUESTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
       </div>

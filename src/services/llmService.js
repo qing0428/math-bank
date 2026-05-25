@@ -1,4 +1,4 @@
-import { stripMarkdown } from '../utils/textUtils'
+import { stripMarkdown, stripQuestionNumber } from '../utils/textUtils'
 
 /**
  * LLM Service Layer
@@ -445,16 +445,17 @@ ${rawText}
 请将上述内容转换为结构化的 LaTeX 格式，返回 JSON：
 
 {
-  "content": "题目的 LaTeX 格式（必填，行间公式用 $$...$$，行内公式用 $...$）",
+  "content": "题目的 LaTeX 格式（必填，行间公式用 $$...$$，行内公式用 $...$），不要包含题号",
   "answer": "仅最终答案或算式，不要解题步骤。如果图片中有答案则直接使用；如果没有请自行计算。必填。",
   "grade": "年级（如「七年级」「高一」，不确定则空字符串）",
   "topic": "知识板块，必须从以下选项中选择一个：数与代数、图形与几何、统计与概率、综合与实践、集合与逻辑、函数、三角函数、数列、不等式、平面向量、立体几何、解析几何、导数与微积分、排列组合、概率、统计、复数、算法初步。不确定则空字符串。",
+  "questionType": "题目类型，从以下选项中选择：选择题、判断题、填空题、画图题、解决问题、计算题、证明题、解答题。不确定则空字符串。",
   "tags": ["标签1", "标签2", "标签3"]
 }
 
 规则：
 1. 准确将数学公式转换为 LaTeX，保持上下标、根号、分式等
-2. 中文文字保留原样
+2. 中文文字保留原样，不要包含题号（如"13."）
 3. answer 字段只填写最终答案或算式，不包含解题步骤
 4. topic 必须严格从上述列表中选择，不要自行发挥
 5. 只返回 JSON，不要任何解释`
@@ -473,10 +474,11 @@ ${rawText}
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
       return {
-        content: parsed.content || '',
+        content: stripQuestionNumber(parsed.content || ''),
         answer: parsed.answer || '',
         grade: parsed.grade || '',
         topic: parsed.topic || '',
+        questionType: parsed.questionType || '',
         tags: Array.isArray(parsed.tags) ? parsed.tags : [],
       }
     }
@@ -519,17 +521,18 @@ export async function recognizeBatchImage(files, config, onProgress) {
 对每一题，提取以下信息并返回 JSON 数组：
 [
   {
-    "content": "题目的 LaTeX 格式（行间公式用 $$...$$，行内公式用 $...$）",
+    "content": "题目的 LaTeX 格式（行间公式用 $$...$$，行内公式用 $...$），不要包含题号",
     "answer": "仅最终答案或算式，没有则空字符串",
     "grade": "年级，不确定则空字符串",
     "topic": "知识板块，必须从以下选项中选择：数与代数、图形与几何、统计与概率、综合与实践、集合与逻辑、函数、三角函数、数列、不等式、平面向量、立体几何、解析几何、导数与微积分、排列组合、概率、统计、复数、算法初步。不确定则空字符串。",
+    "questionType": "题目类型，从以下选项中选择：选择题、判断题、填空题、画图题、解决问题、计算题、证明题、解答题。不确定则空字符串。",
     "tags": ["标签1", "标签2"]
   }
 ]
 
 规则：
 1. 按题目在试卷中出现的顺序排列
-2. 每道题的 content 包含完整的题目文字和公式，中文保留原样
+2. 每道题的 content 包含完整的题目文字和公式，中文保留原样，不要包含题号（如"13."）
 3. 如果图片中有图形无法用文字描述，在 content 中标注"（如图）"
 4. answer 只包含最终结果，不含解题步骤
 5. 只返回 JSON 数组，不要任何解释`
@@ -610,10 +613,11 @@ export async function recognizeBatchImage(files, config, onProgress) {
     const parsed = JSON.parse(str)
     if (Array.isArray(parsed) && parsed.length > 0) {
       return parsed.map(q => ({
-        content: q.content || '',
+        content: stripQuestionNumber(q.content || ''),
         answer: q.answer || '',
         grade: q.grade || '',
         topic: q.topic || '',
+        questionType: q.questionType || '',
         tags: Array.isArray(q.tags) ? q.tags : [],
       }))
     }

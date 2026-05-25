@@ -19,6 +19,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
       answer: result.answer || prev.answer,
       grade: prev.grade || result.grade || '',
       topic: prev.topic || result.topic || '',
+      questionType: prev.questionType || result.questionType || '',
       tags: result.tags?.length
         ? [...new Set([...(prev.tags || []), ...result.tags])]
         : prev.tags,
@@ -33,6 +34,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
       answer: r.answer,
       grade: r.grade,
       topic: r.topic,
+      questionType: r.questionType,
       tags: r.tags,
       examName: examName || '',
     }))
