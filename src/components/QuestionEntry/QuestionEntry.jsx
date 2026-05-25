@@ -2,7 +2,7 @@ import { useState } from 'react'
 import EntryLeft from './EntryLeft'
 import EntryMiddle from './EntryMiddle'
 import EntryRight from './EntryRight'
-import { createQuestion } from '../../store/questionStore'
+import { createQuestion, getQuestionTypesForGrade } from '../../store/questionStore'
 import { autoTag } from '../../services/llmService'
 
 export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
@@ -49,7 +49,19 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
   const handleQuestionChange = (updated) => {
     // In batch mode, propagate grade changes to all questions
     if (batchQuestions.length > 0 && updated.grade !== question.grade) {
-      setBatchQuestions(prev => prev.map(q => ({ ...q, grade: updated.grade })))
+      const newTypes = getQuestionTypesForGrade(updated.grade)
+      setBatchQuestions(prev => prev.map(q => ({
+        ...q,
+        grade: updated.grade,
+        questionType: newTypes.includes(q.questionType) ? q.questionType : '',
+      })))
+    }
+    // Clear questionType if not valid for new grade
+    if (updated.grade !== question.grade && updated.questionType) {
+      const validTypes = getQuestionTypesForGrade(updated.grade)
+      if (!validTypes.includes(updated.questionType)) {
+        updated = { ...updated, questionType: '' }
+      }
     }
     setQuestion(updated)
   }

@@ -13,10 +13,21 @@ export const TOPICS = [
   '排列组合', '概率', '统计', '复数', '算法初步',
 ]
 
-export const QUESTION_TYPES = [
-  '选择题', '判断题', '填空题', '画图题',
-  '解决问题', '计算题', '证明题', '解答题',
-]
+export const QUESTION_TYPES = {
+  elementary: ['填空题', '选择题', '判断题', '计算题', '画图题', '解决问题'],
+  middle: ['选择题', '填空题', '解答题', '计算题', '证明题'],
+  high: ['选择题', '填空题', '解答题', '计算题', '证明题'],
+}
+
+export function getQuestionTypesForGrade(grade) {
+  const elem = ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级']
+  const mid = ['七年级', '八年级', '九年级']
+  if (elem.includes(grade)) return QUESTION_TYPES.elementary
+  if (mid.includes(grade)) return QUESTION_TYPES.middle
+  if (grade) return QUESTION_TYPES.high
+  // No grade selected — return all unique types
+  return [...new Set([...QUESTION_TYPES.elementary, ...QUESTION_TYPES.middle, ...QUESTION_TYPES.high])]
+}
 
 export function createQuestion(data = {}) {
   const now = Date.now()

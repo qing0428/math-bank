@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import StarRating from './StarRating'
-import { GRADES, TOPICS, QUESTION_TYPES } from '../../store/questionStore'
+import { GRADES, TOPICS, getQuestionTypesForGrade } from '../../store/questionStore'
 import { generateSolution, autoTag } from '../../services/llmService'
 import MixedContent from '../common/MixedContent'
 
@@ -208,7 +208,7 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
             className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500"
           >
             <option value="">选择类型</option>
-            {QUESTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            {getQuestionTypesForGrade(question.grade).map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
       </div>
