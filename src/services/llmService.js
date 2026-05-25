@@ -564,7 +564,7 @@ export async function recognizeBatchImage(files, config, onProgress) {
       body: JSON.stringify({
         model,
         input: { messages: [{ role: 'user', content: nativeContent }] },
-        parameters: { max_tokens: 4000 },
+        parameters: { max_tokens: 16000 },
       }),
     }, 180000)
 
@@ -587,7 +587,7 @@ export async function recognizeBatchImage(files, config, onProgress) {
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: contentParts }],
-        max_tokens: 4000,
+        max_tokens: 16000,
       }),
     }, 180000)
 
@@ -599,26 +599,65 @@ export async function recognizeBatchImage(files, config, onProgress) {
     text = data.choices?.[0]?.message?.content?.trim() || ''
   }
 
+  if (!text) {
+    throw new Error('API 返回内容为空，请检查 API 配置和模型是否支持多模态识别')
+  }
+
   // Parse the JSON array
   try {
-    const jsonMatch = text.match(/\[[\s\S]*\]/)
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0])
-      if (Array.isArray(parsed)) {
-        return parsed.map(q => ({
-          content: q.content || '',
-          answer: q.answer || '',
-          grade: q.grade || '',
-          topic: q.topic || '',
-          tags: Array.isArray(q.tags) ? q.tags : [],
-        }))
+    // Try extracting JSON from markdown code block first, then raw JSON
+    let jsonStr = null
+    const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/)
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1].trim()
+    } else {
+      const jsonMatch = text.match(/\[[\s\S]*\]/)
+      if (jsonMatch) jsonStr = jsonMatch[0]
+    }
+
+    if (jsonStr) {
+      try {
+        const parsed = JSON.parse(jsonStr)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(q => ({
+            content: q.content || '',
+            answer: q.answer || '',
+            grade: q.grade || '',
+            topic: q.topic || '',
+            tags: Array.isArray(q.tags) ? q.tags : [],
+          }))
+        }
+      } catch {
+        // JSON truncated — try fixing by appending closing brackets
+        let fixed = jsonStr
+        // Remove trailing comma before attempting to close
+        fixed = fixed.replace(/,\s*$/, '')
+        // Try adding ] at the end
+        for (const suffix of [']', '"}]', '"}]']) {
+          try {
+            const parsed = JSON.parse(fixed + suffix)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              console.warn('[recognizeBatchImage] JSON was truncated, recovered', parsed.length, 'questions')
+              return parsed.map(q => ({
+                content: q.content || '',
+                answer: q.answer || '',
+                grade: q.grade || '',
+                topic: q.topic || '',
+                tags: Array.isArray(q.tags) ? q.tags : [],
+              }))
+            }
+          } catch {
+            // keep trying
+          }
+        }
       }
     }
-  } catch {
-    // JSON parse failed
+  } catch (err) {
+    console.warn('[recognizeBatchImage] JSON parse failed:', err.message)
   }
 
   // Fallback: return raw text as single question
+  console.warn('[recognizeBatchImage] Falling back to raw text, length:', text.length)
   return [{ content: text, answer: '', grade: '', topic: '', tags: [] }]
 }
 

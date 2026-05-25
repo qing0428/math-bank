@@ -84,6 +84,18 @@ export default function EntryLeft({ onImageRecognized, onBatchRecognized, llmCon
       const results = await recognizeBatchImage(fileList, llmConfig.vision, (text) => {
         setProgressText(text)
       })
+
+      // Check for empty or invalid results
+      const validResults = results.filter(r => r.content && r.content.trim())
+      if (validResults.length === 0) {
+        setError('未能识别到任何有效题目，请检查图片是否清晰，或尝试单张识别')
+        setProgressText('')
+        return
+      }
+      if (validResults.length < results.length) {
+        setProgressText(`⚠️ 部分题目内容为空（${validResults.length}/${results.length} 题有效）`)
+      }
+
       onBatchRecognized?.(results)
 
       setProgressText(`✅ 识别完成！共提取 ${results.length} 道题目`)
