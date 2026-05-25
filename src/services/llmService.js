@@ -1,3 +1,5 @@
+import { stripMarkdown } from '../utils/textUtils'
+
 /**
  * LLM Service Layer
  *
@@ -603,61 +605,57 @@ export async function recognizeBatchImage(files, config, onProgress) {
     throw new Error('API 返回内容为空，请检查 API 配置和模型是否支持多模态识别')
   }
 
-  // Parse the JSON array
-  try {
-    // Try extracting JSON from markdown code block first, then raw JSON
-    let jsonStr = null
-    const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/)
-    if (codeBlockMatch) {
-      jsonStr = codeBlockMatch[1].trim()
-    } else {
-      const jsonMatch = text.match(/\[[\s\S]*\]/)
-      if (jsonMatch) jsonStr = jsonMatch[0]
+  // Parse the JSON array — try multiple extraction strategies
+  const tryParse = (str) => {
+    const parsed = JSON.parse(str)
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map(q => ({
+        content: q.content || '',
+        answer: q.answer || '',
+        grade: q.grade || '',
+        topic: q.topic || '',
+        tags: Array.isArray(q.tags) ? q.tags : [],
+      }))
     }
+    if (Array.isArray(parsed) && parsed.length === 0) {
+      throw new Error('API 返回空数组，未识别到任何题目。请确认图片清晰且包含数学题目')
+    }
+    return null
+  }
 
-    if (jsonStr) {
-      try {
-        const parsed = JSON.parse(jsonStr)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(q => ({
-            content: q.content || '',
-            answer: q.answer || '',
-            grade: q.grade || '',
-            topic: q.topic || '',
-            tags: Array.isArray(q.tags) ? q.tags : [],
-          }))
-        }
-        if (Array.isArray(parsed) && parsed.length === 0) {
-          throw new Error('API 返回空数组，未识别到任何题目。请确认图片清晰且包含数学题目')
-        }
-      } catch (parseErr) {
-        if (parseErr.message.includes('未识别到任何题目')) throw parseErr
-        // JSON truncated — try fixing by appending closing brackets
-        let fixed = jsonStr
-        // Remove trailing comma before attempting to close
-        fixed = fixed.replace(/,\s*$/, '')
-        // Try adding ] or partial closing (skip bare ] which just gives empty array)
-        for (const suffix of ['"}]', '}]']) {
-          try {
-            const parsed = JSON.parse(fixed + suffix)
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              console.warn('[recognizeBatchImage] JSON was truncated, recovered', parsed.length, 'questions')
-              return parsed.map(q => ({
-                content: q.content || '',
-                answer: q.answer || '',
-                grade: q.grade || '',
-                topic: q.topic || '',
-                tags: Array.isArray(q.tags) ? q.tags : [],
-              }))
-            }
-          } catch {
-            // keep trying
+  // Strategy 1: Find first [ and last ] to extract JSON array
+  const firstBracket = text.indexOf('[')
+  const lastBracket = text.lastIndexOf(']')
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    const jsonStr = text.slice(firstBracket, lastBracket + 1)
+    try {
+      const result = tryParse(jsonStr)
+      if (result) return result
+    } catch (parseErr) {
+      if (parseErr.message.includes('未识别到任何题目')) throw parseErr
+      // JSON truncated — try fixing by appending closing brackets
+      let fixed = jsonStr.replace(/,\s*$/, '')
+      for (const suffix of ['"}]', '}]']) {
+        try {
+          const result = tryParse(fixed + suffix)
+          if (result) {
+            console.warn('[recognizeBatchImage] JSON was truncated, recovered', result.length, 'questions')
+            return result
           }
-        }
+        } catch { /* keep trying */ }
       }
     }
-  } catch (err) {
-    console.warn('[recognizeBatchImage] JSON parse failed:', err.message)
+  }
+
+  // Strategy 2: stripMarkdown and retry
+  const stripped = stripMarkdown(text)
+  const sFirst = stripped.indexOf('[')
+  const sLast = stripped.lastIndexOf(']')
+  if (sFirst !== -1 && sLast > sFirst) {
+    try {
+      const result = tryParse(stripped.slice(sFirst, sLast + 1))
+      if (result) return result
+    } catch { /* fall through */ }
   }
 
   // Fallback: return raw text as single question (but not empty brackets)
