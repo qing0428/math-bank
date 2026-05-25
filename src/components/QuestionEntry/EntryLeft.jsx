@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { recognizeImage, recognizeBatchImage } from '../../services/llmService'
 import ImageCropper from '../common/ImageCropper'
 
-export default function EntryLeft({ onImageRecognized, onBatchRecognized, llmConfig, onCropComplete }) {
+export default function EntryLeft({ onImageRecognized, onBatchRecognized, llmConfig, onCropComplete, examName, onExamNameChange }) {
   const [mode, setMode] = useState('single')
   const [dragOver, setDragOver] = useState(false)
   const [preview, setPreview] = useState(null)
@@ -160,6 +160,20 @@ export default function EntryLeft({ onImageRecognized, onBatchRecognized, llmCon
       {mode === 'batch' && (
         <div className="bg-amber-50 rounded-lg p-2.5 text-xs border border-amber-200 text-amber-700">
           📋 批量模式：可选择多张试卷图片，AI 将识别所有题目并按顺序列出
+        </div>
+      )}
+
+      {/* Exam name — batch mode only */}
+      {mode === 'batch' && (
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">试卷名称（可选）</label>
+          <input
+            type="text"
+            value={examName || ''}
+            onChange={(e) => onExamNameChange?.(e.target.value)}
+            placeholder="如：2021年日照市新营小学期末试卷"
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500"
+          />
         </div>
       )}
 

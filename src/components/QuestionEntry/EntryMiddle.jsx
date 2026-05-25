@@ -4,16 +4,29 @@ import { GRADES, TOPICS } from '../../store/questionStore'
 import { generateSolution, autoTag } from '../../services/llmService'
 import MixedContent from '../common/MixedContent'
 
+// Strip LaTeX and markdown for plain text preview
+function stripForPreview(text) {
+  if (!text) return ''
+  return text
+    .replace(/\$\$[\s\S]*?\$\$/g, '…')
+    .replace(/\$[^$]*\$/g, '…')
+    .replace(/\\[a-zA-Z]+\{?[^}]*\}?/g, '')
+    .replace(/[{}\\^_]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 // Common preset tags shown below the input
 const PRESET_TAGS = [
   '计算', '方程', '几何', '函数', '应用题', '证明',
   '选择题', '填空题', '解答题', '数形结合', '分类讨论', '综合',
 ]
 
-export default function EntryMiddle({ question, onChange, llmConfig, batchQuestions, selectedBatchIndex, onSelectBatchQuestion }) {
+export default function EntryMiddle({ question, onChange, llmConfig, batchQuestions, selectedBatchIndex, onSelectBatchQuestion, onBatchAutoTag }) {
   const [tagInput, setTagInput] = useState('')
   const [suggestedTags, setSuggestedTags] = useState([])
   const [tagging, setTagging] = useState(false)
+  const [batchTagging, setBatchTagging] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState('')
   const [autoGenerate, setAutoGenerate] = useState(false)
@@ -75,6 +88,18 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
     }
   }
 
+  const handleBatchAutoTag = async () => {
+    if (!batchQuestions?.length || !textConfigured) return
+    setBatchTagging(true)
+    try {
+      await onBatchAutoTag?.()
+    } catch (err) {
+      alert('批量打标失败：' + (err.message || '未知错误'))
+    } finally {
+      setBatchTagging(false)
+    }
+  }
+
   const handleGenerateSolution = async () => {
     if (!question.content?.trim()) return
 
@@ -110,7 +135,18 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
         <div className="bg-amber-50 rounded-lg border border-amber-200 p-3">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-amber-700">📋 批量识别结果（共 {batchQuestions.length} 题）</span>
-            <span className="text-xs text-amber-500">点击题目切换编辑</span>
+            <div className="flex items-center gap-2">
+              {textConfigured && (
+                <button
+                  onClick={handleBatchAutoTag}
+                  disabled={batchTagging}
+                  className="text-xs text-purple-600 hover:text-purple-800 cursor-pointer disabled:opacity-50"
+                >
+                  {batchTagging ? '⏳ 打标中...' : '🏷️ 批量打标'}
+                </button>
+              )}
+              <span className="text-xs text-amber-500">点击题目切换编辑</span>
+            </div>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {batchQuestions.map((q, i) => (
@@ -122,7 +158,7 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
                     ? 'bg-primary-500 text-white'
                     : 'bg-white text-gray-600 border border-gray-200 hover:border-primary-300 hover:text-primary-600'}`}
               >
-                {i + 1}. {q.content ? q.content.slice(0, 15).replace(/\$\$?[^$]*\$\$?/g, '…').replace(/[{}\\]/g, '') : '空'}…
+                {i + 1}. {q.content ? stripForPreview(q.content).slice(0, 15) : '空'}…
               </button>
             ))}
           </div>

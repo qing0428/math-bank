@@ -25,6 +25,7 @@ export function createQuestion(data = {}) {
     difficulty: data.difficulty || 3,
     tags: data.tags || [],
     notes: data.notes || '',
+    examName: data.examName || '',
     imageUrl: data.imageUrl || '',
     createdAt: data.createdAt || now,
     updatedAt: data.updatedAt || now,

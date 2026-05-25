@@ -830,10 +830,17 @@ export async function autoTag(content, config) {
 
   let text = ''
 
-  if (isDashscopeNative(baseUrl)) {
-    text = await dashscopeNativeChat(baseUrl, apiKey, model, prompt, null, 200, false)
-  } else {
-    text = await openaiCompatibleChat(baseUrl, apiKey, model, prompt, null, 200, false)
+  try {
+    if (isDashscopeNative(baseUrl)) {
+      text = await dashscopeNativeChat(baseUrl, apiKey, model, prompt, null, 200, false)
+    } else {
+      text = await openaiCompatibleChat(baseUrl, apiKey, model, prompt, null, 200, false)
+    }
+  } catch (err) {
+    if (err.message.includes('not activated') || err.message.includes('invalid_parameter_error')) {
+      throw new Error(`模型 "${model}" 未激活。请在 DashScope 控制台开通该模型，或在 API 设置中更换已开通的文本模型`)
+    }
+    throw err
   }
 
   return text.split(/[,，、]/).map(t => t.trim()).filter(Boolean)

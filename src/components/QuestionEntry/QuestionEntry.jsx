@@ -3,12 +3,14 @@ import EntryLeft from './EntryLeft'
 import EntryMiddle from './EntryMiddle'
 import EntryRight from './EntryRight'
 import { createQuestion } from '../../store/questionStore'
+import { autoTag } from '../../services/llmService'
 
 export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
   const [question, setQuestion] = useState(() => createQuestion())
   const [saved, setSaved] = useState(false)
   const [batchQuestions, setBatchQuestions] = useState([])
   const [selectedBatchIndex, setSelectedBatchIndex] = useState(-1)
+  const [examName, setExamName] = useState('')
 
   const handleImageRecognized = (result) => {
     setQuestion(prev => ({
@@ -32,6 +34,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
       grade: r.grade,
       topic: r.topic,
       tags: r.tags,
+      examName: examName || '',
     }))
     setBatchQuestions(batchList)
     // Select the first one
@@ -39,6 +42,14 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
       setSelectedBatchIndex(0)
       setQuestion(batchList[0])
     }
+  }
+
+  const handleQuestionChange = (updated) => {
+    // In batch mode, propagate grade changes to all questions
+    if (batchQuestions.length > 0 && updated.grade !== question.grade) {
+      setBatchQuestions(prev => prev.map(q => ({ ...q, grade: updated.grade })))
+    }
+    setQuestion(updated)
   }
 
   const selectBatchQuestion = (index) => {
@@ -93,6 +104,32 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
     }, 1500)
   }
 
+  const handleBatchAutoTag = async () => {
+    if (!batchQuestions.length) return
+    // Save current question edits first
+    const currentBatch = [...batchQuestions]
+    if (selectedBatchIndex >= 0 && selectedBatchIndex < currentBatch.length) {
+      currentBatch[selectedBatchIndex] = { ...question }
+    }
+    // Auto-tag each question that doesn't have tags
+    const updated = [...currentBatch]
+    for (let i = 0; i < updated.length; i++) {
+      if (!updated[i].content?.trim()) continue
+      try {
+        const tags = await autoTag(updated[i].content, llmConfig.text)
+        const existing = new Set(updated[i].tags || [])
+        updated[i] = { ...updated[i], tags: [...new Set([...(updated[i].tags || []), ...tags])] }
+      } catch (err) {
+        console.warn(`批量打标第${i + 1}题失败:`, err.message)
+      }
+    }
+    setBatchQuestions(updated)
+    // Update current question view
+    if (selectedBatchIndex >= 0) {
+      setQuestion(updated[selectedBatchIndex])
+    }
+  }
+
   return (
     <div className="p-6 h-full">
       <div className="mb-6">
@@ -115,6 +152,8 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
             onBatchRecognized={handleBatchRecognized}
             llmConfig={llmConfig}
             onCropComplete={(dataUrl) => setQuestion(prev => ({ ...prev, imageUrl: dataUrl }))}
+            examName={examName}
+            onExamNameChange={setExamName}
           />
         </div>
 
@@ -122,11 +161,12 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
         <div className="lg:col-span-5 bg-white rounded-xl border border-border shadow-sm p-4 overflow-y-auto">
           <EntryMiddle
             question={question}
-            onChange={setQuestion}
+            onChange={handleQuestionChange}
             llmConfig={llmConfig}
             batchQuestions={batchQuestions}
             selectedBatchIndex={selectedBatchIndex}
             onSelectBatchQuestion={selectBatchQuestion}
+            onBatchAutoTag={handleBatchAutoTag}
           />
         </div>
 
