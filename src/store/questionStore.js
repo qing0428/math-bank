@@ -29,10 +29,17 @@ export function getQuestionTypesForGrade(grade) {
   return [...new Set([...QUESTION_TYPES.elementary, ...QUESTION_TYPES.middle, ...QUESTION_TYPES.high])]
 }
 
+function generateId() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (crypto.getRandomValues(new Uint8Array(1))[0] & 15) >> (c === 'x' ? 0 : 3)
+    return r.toString(16)
+  })
+}
+
 export function createQuestion(data = {}) {
   const now = Date.now()
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     content: data.content || '',
     answer: data.answer || '',
     solution: data.solution || '',
