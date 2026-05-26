@@ -670,6 +670,177 @@ export async function recognizeBatchImage(files, config, onProgress) {
   return [{ content: text, answer: '', grade: '', topic: '', tags: [] }]
 }
 
+// ─── Text → LaTeX Recognition (for Word/PDF text extraction) ──
+
+/**
+ * Send extracted text (from Word/PDF files) to LLM for structuring into LaTeX JSON.
+ * Uses the same output format as image recognition step 2.
+ */
+export async function recognizeText(text, config, onProgress) {
+  const { baseUrl, apiKey, model } = config
+  if (!baseUrl || !model) throw new Error('请先配置并测试视觉识别 API')
+
+  if (!text || text.trim().length < 5) {
+    throw new Error('文档内容为空或过短，请检查文件是否包含数学题目')
+  }
+
+  onProgress?.('正在分析文档内容...')
+
+  const prompt = `以下是从 Word/PDF 文档中提取的数学题目内容：
+
+"""
+${text.slice(0, 15000)}
+"""
+
+请将上述内容转换为结构化的 LaTeX 格式，返回 JSON：
+
+{
+  "content": "题目的 LaTeX 格式（必填，行间公式用 $$...$$，行内公式用 $...$），不要包含题号",
+  "answer": "仅最终答案或算式，不要解题步骤。必填，如果文档中没有答案请自行计算。",
+  "grade": "年级（如「七年级」「高一」，不确定则空字符串）",
+  "topic": "知识板块，必须从以下选项中选择一个：数与代数、图形与几何、统计与概率、综合与实践、集合与逻辑、函数、三角函数、数列、不等式、平面向量、立体几何、解析几何、导数与微积分、排列组合、概率、统计、复数、算法初步。不确定则空字符串。",
+  "questionType": "题目类型，从以下选项中选择：选择题、判断题、填空题、画图题、解决问题、计算题、证明题、解答题。不确定则空字符串。",
+  "tags": ["标签1", "标签2", "标签3"]
+}
+
+规则：
+1. 准确将数学公式转换为 LaTeX，保持上下标、根号、分式等
+2. 中文文字保留原样，不要包含题号
+3. answer 字段只填写最终答案或算式，不包含解题步骤
+4. topic 必须严格从上述列表中选择
+5. 只返回 JSON，不要任何解释`
+
+  let resultText = ''
+
+  if (isDashscopeNative(baseUrl)) {
+    resultText = await dashscopeNativeChat(baseUrl, apiKey, model, prompt, null, 2000, false)
+  } else {
+    resultText = await openaiCompatibleChat(baseUrl, apiKey, model, prompt, null, 2000, false)
+  }
+
+  try {
+    const jsonMatch = resultText.match(/\{[\s\S]*\}/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      return {
+        content: stripQuestionNumber(parsed.content || ''),
+        answer: parsed.answer || '',
+        grade: parsed.grade || '',
+        topic: parsed.topic || '',
+        questionType: parsed.questionType || '',
+        tags: Array.isArray(parsed.tags) ? parsed.tags : [],
+      }
+    }
+  } catch { /* fallback */ }
+
+  return { content: text.slice(0, 5000), answer: '', grade: '', topic: '', tags: [] }
+}
+
+/**
+ * Batch text recognition: extract multiple questions from document text.
+ */
+export async function recognizeBatchText(text, config, onProgress) {
+  const { baseUrl, apiKey, model } = config
+  if (!baseUrl || !model) throw new Error('请先配置并测试视觉识别 API')
+
+  if (!text || text.trim().length < 5) {
+    throw new Error('文档内容为空或过短，请检查文件是否包含数学题目')
+  }
+
+  onProgress?.('正在分析文档内容...')
+
+  const prompt = `以下是从 Word/PDF 文档中提取的数学试卷内容（可能包含多道题目）：
+
+"""
+${text.slice(0, 30000)}
+"""
+
+请识别所有题目，按顺序列出。对每一题，返回以下 JSON 数组格式：
+
+[
+  {
+    "content": "题目的 LaTeX 格式（行间公式用 $$...$$，行内公式用 $...$），不要包含题号",
+    "answer": "仅最终答案或算式，没有则空字符串",
+    "grade": "年级，不确定则空字符串",
+    "topic": "知识板块，必须从以下选项中选择：数与代数、图形与几何、统计与概率、综合与实践、集合与逻辑、函数、三角函数、数列、不等式、平面向量、立体几何、解析几何、导数与微积分、排列组合、概率、统计、复数、算法初步。不确定则空字符串。",
+    "questionType": "题目类型，从以下选项中选择：选择题、判断题、填空题、画图题、解决问题、计算题、证明题、解答题。不确定则空字符串。",
+    "tags": ["标签1", "标签2"]
+  }
+]
+
+规则：
+1. 按题目出现的顺序排列
+2. 每道题的 content 包含完整的题目文字和公式，中文保留原样，不要包含题号
+3. answer 只包含最终结果，不含解题步骤
+4. 只返回 JSON 数组，不要任何解释`
+
+  let resultText = ''
+
+  if (isDashscopeNative(baseUrl)) {
+    resultText = await dashscopeNativeChat(baseUrl, apiKey, model, prompt, null, 8000, false)
+  } else {
+    resultText = await openaiCompatibleChat(baseUrl, apiKey, model, prompt, null, 8000, false)
+  }
+
+  if (!resultText) {
+    throw new Error('API 返回内容为空，请检查 API 配置')
+  }
+
+  // Parse JSON array — same strategy as recognizeBatchImage
+  const tryParse = (str) => {
+    const parsed = JSON.parse(str)
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed.map(q => ({
+        content: stripQuestionNumber(q.content || ''),
+        answer: q.answer || '',
+        grade: q.grade || '',
+        topic: q.topic || '',
+        questionType: q.questionType || '',
+        tags: Array.isArray(q.tags) ? q.tags : [],
+      }))
+    }
+    if (Array.isArray(parsed) && parsed.length === 0) {
+      throw new Error('API 返回空数组，未识别到任何题目')
+    }
+    return null
+  }
+
+  const firstBracket = resultText.indexOf('[')
+  const lastBracket = resultText.lastIndexOf(']')
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    const jsonStr = resultText.slice(firstBracket, lastBracket + 1)
+    try {
+      const result = tryParse(jsonStr)
+      if (result) return result
+    } catch (parseErr) {
+      if (parseErr.message.includes('未识别到任何题目')) throw parseErr
+      let fixed = jsonStr.replace(/,\s*$/, '')
+      for (const suffix of ['"}]', '}]']) {
+        try {
+          const result = tryParse(fixed + suffix)
+          if (result) return result
+        } catch { /* keep trying */ }
+      }
+    }
+  }
+
+  const stripped = stripMarkdown(resultText)
+  const sFirst = stripped.indexOf('[')
+  const sLast = stripped.lastIndexOf(']')
+  if (sFirst !== -1 && sLast > sFirst) {
+    try {
+      const result = tryParse(stripped.slice(sFirst, sLast + 1))
+      if (result) return result
+    } catch { /* fall through */ }
+  }
+
+  if (resultText.trim() === '[]' || resultText.trim() === '[ ]') {
+    throw new Error('API 返回空数组，未识别到任何题目')
+  }
+
+  return [{ content: resultText, answer: '', grade: '', topic: '', tags: [] }]
+}
+
 /**
  * OpenAI-compatible chat request (works for OpenAI, DeepSeek, Dashscope compatible-mode, etc.)
  * Image format: { type: "image_url", image_url: { url: "data:image/..." } }
