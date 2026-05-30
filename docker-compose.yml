@@ -1,15 +1,13 @@
 services:
   app:
     build: .
+    image: ghcr.io/qing0428/math-bank:latest
     container_name: mathbank
     ports:
       - "3080:3001"
     volumes:
-      - mathbank-data:/data
+      - ${DATA_DIR:-./data}:/data
     environment:
       - DB_PATH=/data/mathbank.db
       - PORT=3001
     restart: unless-stopped
-
-volumes:
-  mathbank-data:
