@@ -1,7 +1,26 @@
 services:
-  mathbank:
+  frontend:
     build: .
     container_name: mathbank
     ports:
       - "3080:80"
+    depends_on:
+      - api
     restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: mathbank-api
+    volumes:
+      - mathbank-data:/data
+    environment:
+      - DB_PATH=/data/mathbank.db
+      - PORT=3001
+    expose:
+      - "3001"
+    restart: unless-stopped
+
+volumes:
+  mathbank-data:

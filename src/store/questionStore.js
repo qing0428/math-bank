@@ -1,5 +1,3 @@
-const STORAGE_KEY = 'mathQuestions'
-
 export const GRADES = [
   '一年级', '二年级', '三年级', '四年级', '五年级', '六年级',
   '七年级', '八年级', '九年级',
@@ -25,7 +23,6 @@ export function getQuestionTypesForGrade(grade) {
   if (elem.includes(grade)) return QUESTION_TYPES.elementary
   if (mid.includes(grade)) return QUESTION_TYPES.middle
   if (grade) return QUESTION_TYPES.high
-  // No grade selected — return all unique types
   return [...new Set([...QUESTION_TYPES.elementary, ...QUESTION_TYPES.middle, ...QUESTION_TYPES.high])]
 }
 
@@ -56,17 +53,33 @@ export function createQuestion(data = {}) {
   }
 }
 
-export function loadQuestions() {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : []
-  } catch {
-    return []
-  }
-}
+export function getStats(questions) {
+  const today = new Date().toISOString().slice(0, 10)
+  const total = questions.length
+  const todayNew = questions.filter(q => {
+    const d = new Date(q.createdAt).toISOString().slice(0, 10)
+    return d === today
+  }).length
+  const todayModified = questions.filter(q => {
+    const d = new Date(q.updatedAt).toISOString().slice(0, 10)
+    return d === today
+  }).length
+  const avgDifficulty = total > 0
+    ? (questions.reduce((sum, q) => sum + (q.difficulty || 0), 0) / total).toFixed(1)
+    : '0.0'
 
-export function saveQuestions(questions) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(questions))
+  const tagCount = {}
+  questions.forEach(q => {
+    ;(q.tags || []).forEach(t => {
+      tagCount[t] = (tagCount[t] || 0) + 1
+    })
+  })
+  const topTags = Object.entries(tagCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([tag, count]) => ({ tag, count }))
+
+  return { total, todayNew, todayModified, avgDifficulty, topTags }
 }
 
 export function exportToJSON(questions) {
@@ -97,34 +110,4 @@ export function importFromJSON(file) {
     reader.onerror = () => reject(reader.error)
     reader.readAsText(file)
   })
-}
-
-export function getStats(questions) {
-  const today = new Date().toISOString().slice(0, 10)
-  const total = questions.length
-  const todayNew = questions.filter(q => {
-    const d = new Date(q.createdAt).toISOString().slice(0, 10)
-    return d === today
-  }).length
-  const todayModified = questions.filter(q => {
-    const d = new Date(q.updatedAt).toISOString().slice(0, 10)
-    return d === today
-  }).length
-  const avgDifficulty = total > 0
-    ? (questions.reduce((sum, q) => sum + (q.difficulty || 0), 0) / total).toFixed(1)
-    : '0.0'
-
-  // Tag frequency
-  const tagCount = {}
-  questions.forEach(q => {
-    ;(q.tags || []).forEach(t => {
-      tagCount[t] = (tagCount[t] || 0) + 1
-    })
-  })
-  const topTags = Object.entries(tagCount)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 15)
-    .map(([tag, count]) => ({ tag, count }))
-
-  return { total, todayNew, todayModified, avgDifficulty, topTags }
 }
