@@ -1,4 +1,4 @@
-# ── Build stage ──
+# ── Build frontend ──
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -6,10 +6,20 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# ── Production stage ──
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
-HEALTHCHECK --interval=30s --timeout=3s CMD wget -q --spider http://localhost/ || exit 1
-CMD ["nginx", "-g", "daemon off;"]
+# ── Production ──
+FROM node:20-alpine
+RUN apk add --no-cache python3 make g++
+WORKDIR /app
+
+# Install server dependencies
+COPY server/package.json server/package-lock.json* ./
+RUN npm ci --omit=dev
+
+# Copy server source
+COPY server/ .
+
+# Copy built frontend into server/dist
+COPY --from=build /app/dist ./dist
+
+EXPOSE 3001
+CMD ["node", "index.js"]
