@@ -1,5 +1,6 @@
 # ── Build frontend ──
 FROM node:20-alpine AS build
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
@@ -8,12 +9,13 @@ RUN npm run build
 
 # ── Production ──
 FROM node:20-alpine
-RUN apk add --no-cache python3 make g++
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+    && apk add --no-cache python3 make g++
 WORKDIR /app
 
 # Install server dependencies
 COPY server/package.json server/package-lock.json* ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev
 
 # Copy server source
 COPY server/ .

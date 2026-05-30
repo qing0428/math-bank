@@ -20,8 +20,9 @@
 | 前端框架 | React 18 + Vite |
 | 样式方案 | Tailwind CSS 3 |
 | 公式渲染 | KaTeX |
-| 数据持久化 | LocalStorage + JSON 导入/导出 |
-| 部署方案 | Docker + Nginx |
+| 后端服务 | Node.js + Express |
+| 数据库 | SQLite（better-sqlite3，WAL 模式）|
+| 部署方案 | Docker 单容器（Node.js 同时托管前端 + API）|
 | API 协议 | OpenAI Chat Completions 兼容接口 |
 
 ## 快速开始
@@ -29,17 +30,39 @@
 ### 本地开发
 
 ```bash
+# 安装前端依赖
 npm install
+# 安装后端依赖
+cd server && npm install && cd ..
+# 启动开发服务器
 npm run dev
 ```
 
 ### Docker 部署
 
 ```bash
-docker-compose up -d
+# 构建并启动（单容器）
+docker compose build --no-cache
+docker compose up -d
+
+# 查看日志
+docker logs -f mathbank
 ```
 
 访问 http://localhost:3080
+
+### 架构说明
+
+单容器部署：Node.js 同时负责前端静态文件托管和后端 API 服务。
+
+```
+用户请求 → :3080 → Express (Node.js)
+                      ├── /api/*   → REST API（SQLite 读写）
+                      ├── 静态文件  → dist/（Vite 构建产物）
+                      └── 其他路径  → index.html（SPA 路由）
+```
+
+SQLite 数据通过 Docker volume (`mathbank-data`) 持久化存储在 `/data/mathbank.db`。
 
 ## 使用说明
 
