@@ -2,6 +2,7 @@ const menuItems = [
   { key: 'dashboard', label: '数据概览', icon: '📊' },
   { key: 'entry', label: '录入题目', icon: '✏️' },
   { key: 'search', label: '题库', icon: '📚' },
+  { key: 'paper', label: '组卷', icon: '📝' },
   { key: 'settings', label: 'API 设置', icon: '⚙️' },
 ]
 

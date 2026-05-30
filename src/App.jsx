@@ -4,12 +4,14 @@ import Dashboard from './components/Dashboard/Dashboard'
 import QuestionEntry from './components/QuestionEntry/QuestionEntry'
 import Search from './components/Search/Search'
 import Settings from './components/Settings/Settings'
+import PaperComposition from './components/Paper/PaperComposition'
 import { loadLLMConfig } from './store/llmConfigStore'
 
 const pages = {
   dashboard: Dashboard,
   entry: QuestionEntry,
   search: Search,
+  paper: PaperComposition,
   settings: Settings,
 }
 
