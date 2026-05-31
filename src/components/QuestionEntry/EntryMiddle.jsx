@@ -148,7 +148,8 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
         question.answer,
         llmConfig.text,
         fastMode,
-        question.grade
+        question.grade,
+        question.imageUrl
       )
       // Strip \boxed{...} artifacts from solution
       solution = solution.replace(/\\boxed\{([^}]*)\}/g, '$1')

@@ -505,10 +505,12 @@ ${rawText}
 规则：
 1. 准确将数学公式转换为 LaTeX，保持上下标、根号、分式等
 2. 中文文字保留原样，不要包含题号（如"13."）
-3. answer 字段只填写最终答案或算式，不包含解题步骤
-4. topic 必须严格从上述列表中选择，不要自行发挥
-5. difficulty 根据知识深度、计算量、思维复杂度综合评定：1=基础计算，2=简单应用，3=综合运用，4=较难综合，5=竞赛难度
-6. 只返回 JSON，不要任何解释`
+3. 如果题目中有统计表格，不要用 LaTeX tabular 格式，改为用文字描述表格数据（如"周一14°C，周二24°C..."），或在 content 末尾标注"（如表）"
+4. 如果是选择题，必须完整列出所有选项（A. B. C. D.），每个选项内容完整不能省略。选项中的图形或图片直接忽略，用文字描述选项内容
+5. answer 字段只填写最终答案或算式，不包含解题步骤
+6. topic 必须严格从上述列表中选择，不要自行发挥
+7. difficulty 根据知识深度、计算量、思维复杂度综合评定：1=基础计算，2=简单应用，3=综合运用，4=较难综合，5=竞赛难度
+8. 只返回 JSON，不要任何解释`
 
   let text = ''
 
@@ -600,9 +602,11 @@ export async function recognizeBatchImage(files, config, onProgress) {
 1. 按题目在试卷中出现的顺序排列
 2. 每道题的 content 包含完整的题目文字和公式，中文保留原样，不要包含题号（如"13."）
 3. 如果图片中有图形无法用文字描述，在 content 中标注"（如图）"
-4. answer 只包含最终结果，不含解题步骤
-5. difficulty 根据知识深度、计算量、思维复杂度综合评定
-6. 只返回 JSON 数组，不要任何解释`
+4. 如果题目中有统计表格，不要用 LaTeX tabular 格式，改为用文字描述表格数据，或在 content 末尾标注"（如表）"
+5. 如果是选择题，必须完整列出所有选项（A. B. C. D.），每个选项内容完整不能省略。选项中的图形或图片直接忽略，用文字描述选项内容
+6. answer 只包含最终结果，不含解题步骤
+7. difficulty 根据知识深度、计算量、思维复杂度综合评定
+8. 只返回 JSON 数组，不要任何解释`
 
     let text = ''
 
@@ -1031,8 +1035,9 @@ function getGradeHint(grade) {
 
 /**
  * Generate solution for a given math problem.
+ * If imageUrl is provided, sends image to vision model along with text.
  */
-export async function generateSolution(content, answer, config, fastMode = false, grade = '') {
+export async function generateSolution(content, answer, config, fastMode = false, grade = '', imageUrl = '') {
   const { baseUrl, apiKey, model } = config
   if (!baseUrl || !model) throw new Error('请先配置并测试文本生成 API')
 
@@ -1055,6 +1060,15 @@ ${gradeHint}
 ${answer ? `参考答案：${answer}` : ''}`
 
   const prompt = fastMode ? fastPrompt : normalPrompt
+
+  // If image is attached, use vision model
+  if (imageUrl) {
+    const maxTokens = fastMode ? 1000 : 3000
+    if (isDashscopeNative(baseUrl)) {
+      return dashscopeNativeChat(baseUrl, apiKey, model, prompt, imageUrl, maxTokens, true)
+    }
+    return openaiCompatibleChat(baseUrl, apiKey, model, prompt, imageUrl, maxTokens, true)
+  }
 
   if (isDashscopeNative(baseUrl)) {
     return dashscopeNativeChat(baseUrl, apiKey, model, prompt, null, fastMode ? 1000 : 3000, false)
