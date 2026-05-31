@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import 'katex/dist/katex.min.css'
 import MixedContent from '../common/MixedContent'
 import StarRating from '../QuestionEntry/StarRating'
+import { GRADES, TOPICS, getQuestionTypesForGrade } from '../../store/questionStore'
 
 function useIsTallImage(src) {
   const [tall, setTall] = useState(false)
@@ -238,15 +239,42 @@ export default function SearchResults({ results, onEdit, onDelete }) {
                 <label className="block text-xs font-medium text-gray-500 mb-1">解析</label>
                 <textarea value={editingQuestion.solution || ''} onChange={e => setEditingQuestion(p => ({ ...p, solution: e.target.value }))} rows={4} className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">年级</label>
-                  <input value={editingQuestion.grade || ''} onChange={e => setEditingQuestion(p => ({ ...p, grade: e.target.value }))} className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" />
+                  <select value={editingQuestion.grade || ''} onChange={e => setEditingQuestion(p => ({ ...p, grade: e.target.value, questionType: '' }))} className="w-full rounded-lg border border-border px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+                    <option value="">未选</option>
+                    {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">知识板块</label>
+                  <select value={editingQuestion.topic || ''} onChange={e => setEditingQuestion(p => ({ ...p, topic: e.target.value }))} className="w-full rounded-lg border border-border px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+                    <option value="">未选</option>
+                    {TOPICS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">题型</label>
+                  <select value={editingQuestion.questionType || ''} onChange={e => setEditingQuestion(p => ({ ...p, questionType: e.target.value }))} className="w-full rounded-lg border border-border px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+                    <option value="">未选</option>
+                    {getQuestionTypesForGrade(editingQuestion.grade).map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">难度</label>
+                  <StarRating value={editingQuestion.difficulty || 0} onChange={v => setEditingQuestion(p => ({ ...p, difficulty: v }))} />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">备注</label>
-                  <input value={editingQuestion.notes || ''} onChange={e => setEditingQuestion(p => ({ ...p, notes: e.target.value }))} className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" />
+                  <input value={editingQuestion.notes || ''} onChange={e => setEditingQuestion(p => ({ ...p, notes: e.target.value }))} className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">标签（用逗号分隔）</label>
+                <input value={(editingQuestion.tags || []).join(', ')} onChange={e => setEditingQuestion(p => ({ ...p, tags: e.target.value.split(/[,，]/).map(t => t.trim()).filter(Boolean) }))} className="w-full rounded-lg border border-border px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="如：计算, 方程, 应用题" />
               </div>
             </div>
             <div className="px-5 py-3 border-t border-border flex justify-end gap-2 flex-shrink-0">

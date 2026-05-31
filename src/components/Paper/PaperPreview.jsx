@@ -40,25 +40,28 @@ export default function PaperPreview({
             {/* ─── Left sidebar: seal line ─── */}
             {showSealLine && (
               <div className="flex-shrink-0 relative" style={{ width: '3cm' }}>
-                {/* Seal line text + fields, vertical from top */}
+                {/* "密封线" text, rotated vertically on far left */}
                 <div
-                  className="absolute inset-0 flex flex-col items-center justify-start pt-8 pb-8 gap-3"
-                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                  className="absolute left-0 top-0 bottom-0 flex items-center justify-center"
+                  style={{ width: '1cm' }}
                 >
-                  <span className="text-base font-bold tracking-[0.3em] text-gray-800 mb-2">
+                  <span
+                    className="text-base font-bold tracking-[0.3em] text-gray-800"
+                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                  >
                     密 封 线
                   </span>
+                </div>
+                {/* Student info fields: stacked vertically in a column */}
+                <div
+                  className="absolute flex flex-col items-start gap-6 text-sm text-gray-600 pl-3 pt-10"
+                  style={{ left: '0.8cm', right: '0.2cm' }}
+                >
                   {studentId && (
-                    <span className="text-sm text-gray-600 leading-loose">
-                      学号：_______________
-                    </span>
+                    <span className="whitespace-nowrap">学号：_______________</span>
                   )}
-                  <span className="text-sm text-gray-600 leading-loose">
-                    姓名：_______________
-                  </span>
-                  <span className="text-sm text-gray-600 leading-loose">
-                    班级：_______________
-                  </span>
+                  <span className="whitespace-nowrap">姓名：_______________</span>
+                  <span className="whitespace-nowrap">班级：_______________</span>
                 </div>
                 {/* Vertical divider */}
                 <div className="absolute right-0 top-0 bottom-0 w-px bg-gray-800" />
