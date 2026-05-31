@@ -139,11 +139,20 @@ function parseDelimiters(text, segments) {
 // ─── Tabular parsing ─────────────────────────────────────────
 
 function parseTabular(raw) {
-  const specMatch = raw.match(/\\begin\{tabular\}\{([^}]*)\}/)
-  const colSpec = specMatch ? specMatch[1] : ''
+  // Extract column spec — must be {..} immediately after \begin{tabular}
+  const tabIdx = raw.indexOf('\\begin{tabular}')
+  const afterTab = tabIdx + '\\begin{tabular}'.length
+  let colSpec = ''
+  let bodyStart = afterTab
 
-  const beginEnd = raw.indexOf('}', raw.indexOf('\\begin{tabular}'))
-  const bodyStart = beginEnd + 1
+  if (raw[afterTab] === '{') {
+    const specEnd = raw.indexOf('}', afterTab)
+    if (specEnd >= 0) {
+      colSpec = raw.slice(afterTab + 1, specEnd)
+      bodyStart = specEnd + 1
+    }
+  }
+
   const bodyEnd = raw.lastIndexOf('\\end{tabular}')
   let body = raw.slice(bodyStart, bodyEnd).trim()
 
@@ -187,8 +196,10 @@ function cleanCellContent(cell) {
     .replace(/\\multicolumn\{[^}]*\}\{[^}]*\}\{([^}]*)\}/g, '$1')
     .replace(/\\text(?:bf|sf|rm|it)\{([^}]*)\}/g, '$1')
     .replace(/\\mathbf\{([^}]*)\}/g, '$1')
+    .replace(/\\textasciitilde|\\texttildelow/g, '~')
     .replace(/\\quad|\\qquad/g, ' ')
     .replace(/\\,/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
 }
 
@@ -204,7 +215,10 @@ function CellContent({ text }) {
     if (dollarIdx > 0) parts.push(<span key={key++}>{remaining.slice(0, dollarIdx)}</span>)
     const closeIdx = remaining.indexOf('$', dollarIdx + 1)
     if (closeIdx < 0) { parts.push(<span key={key++}>{remaining.slice(dollarIdx)}</span>); break }
-    const mathStr = remaining.slice(dollarIdx + 1, closeIdx)
+    let mathStr = remaining.slice(dollarIdx + 1, closeIdx)
+    // Fix LaTeX commands not supported by KaTeX
+    mathStr = mathStr.replace(/\\textasciitilde|\\texttildelow/g, '\\sim')
+    mathStr = mathStr.replace(/\\mathrm\{([^}]*)\}/g, '\\text{$1}')
     try { parts.push(<InlineMath key={key++} math={mathStr} />) }
     catch { parts.push(<span key={key++} className="text-red-500">${mathStr}$</span>) }
     remaining = remaining.slice(closeIdx + 1)
@@ -249,16 +263,24 @@ function TabularTable({ raw }) {
 // ─── Choice option formatting ───────────────────────────────
 
 function formatChoiceOptions(text) {
-  const optionPattern = /(?:^|\n|\r)\s*([A-D][.．]\s*[^\n]*?)(?=\s*[A-D][.．]|\s*$)/gm
+  // Match each option: A. xxx or B. xxx etc, capturing the full line
+  const optionPattern = /(?:^|\n)\s*([A-D][.．]\s*[^\n]*)/g
   const matches = [...text.matchAll(optionPattern)]
 
   if (matches.length < 2) return text
 
-  // Collect option texts
+  // Only reformat if all options are on separate lines (1 per line)
+  // If already on same line, leave as-is
+  const allOnSeparateLines = matches.every((m, i) => {
+    if (i === 0) return true
+    return m.index > matches[i - 1].index + matches[i - 1][0].length + 5
+  })
+
+  if (!allOnSeparateLines) return text
+
   const options = matches.map(m => m[1].trim())
   const count = options.length
 
-  // Get text before first option
   const firstIdx = matches[0].index
   const before = text.slice(0, firstIdx).replace(/\s+$/, '')
 
@@ -305,8 +327,11 @@ function renderSegment(seg, index, answer) {
 
   if (seg.type === 'inline') {
     if (!seg.content.trim()) return null
-    try { return <InlineMath key={index} math={seg.content} /> }
-    catch { return <span key={index} className="text-red-500">${seg.content}$</span> }
+    let mathStr = seg.content
+      .replace(/\\textasciitilde|\\texttildelow/g, '\\sim')
+      .replace(/\\mathrm\{([^}]*)\}/g, '\\text{$1}')
+    try { return <InlineMath key={index} math={mathStr} /> }
+    catch { return <span key={index} className="text-red-500">${mathStr}$</span> }
   }
 
   if (seg.type === 'block') {

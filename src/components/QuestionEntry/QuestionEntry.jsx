@@ -112,15 +112,16 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
     setSaved(true)
     setTimeout(() => {
       setSaved(false)
-      // In batch mode, move to next question
+      // In batch mode, remove saved question and move to next
       if (batchQuestions.length > 0) {
-        const nextIndex = selectedBatchIndex + 1
-        if (nextIndex < batchQuestions.length) {
-          setSelectedBatchIndex(nextIndex)
-          setQuestion(batchQuestions[nextIndex])
+        const newBatch = batchQuestions.filter((_, i) => i !== selectedBatchIndex)
+        setBatchQuestions(newBatch)
+        if (newBatch.length > 0) {
+          const nextIdx = Math.min(selectedBatchIndex, newBatch.length - 1)
+          setSelectedBatchIndex(nextIdx)
+          setQuestion(newBatch[nextIdx])
         } else {
           // All saved, reset
-          setBatchQuestions([])
           setSelectedBatchIndex(-1)
           setBatchImages([])
           setQuestion(createQuestion())
