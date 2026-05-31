@@ -653,8 +653,13 @@ export async function recognizeBatchImage(files, config, onProgress) {
       throw new Error('API 返回内容为空，请检查 API 配置和模型是否支持多模态识别')
     }
 
-    // Parse the JSON array from this chunk
+    // Parse the JSON array from this chunk, attach source image
     const parsed = parseQuestionsFromText(text)
+    // Each question from this chunk gets the source image attached
+    const chunkImageUrl = chunk[0] // CHUNK_SIZE=1, always one image per chunk
+    for (const q of parsed) {
+      q.imageUrl = chunkImageUrl
+    }
     allQuestions.push(...parsed)
   }
 

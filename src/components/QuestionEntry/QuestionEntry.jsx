@@ -36,6 +36,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
       topic: r.topic,
       questionType: r.questionType,
       tags: r.tags,
+      imageUrl: r.imageUrl || '',
       examName: examName || '',
     }))
     setBatchQuestions(batchList)
