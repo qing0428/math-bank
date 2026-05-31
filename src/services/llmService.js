@@ -1068,15 +1068,24 @@ ${answer ? `参考答案：${answer}` : ''}`
 /**
  * Auto-generate tags for a math problem.
  */
-export async function autoTag(content, config) {
+export async function autoTag(content, config, grade = '') {
   const { baseUrl, apiKey, model } = config
   if (!baseUrl || !model) throw new Error('请先配置并测试文本生成 API')
+
+  let gradeConstraint = ''
+  if (grade) {
+    if (/四|4/.test(grade)) {
+      gradeConstraint = `\n重要约束：该题目属于${grade}，四年级学生未学习方程、分数运算、小数运算等初中内容。标签中不得出现"方程""代数""函数""不等式""分数运算""小数运算"等超出四年级知识范围的词语。四年级主要知识点：大数认识、三位数乘两位数、除数是两位数的除法、平行四边形和梯形、数学广角（鸡兔同笼用假设法/列表法，不用方程）、条形统计图等。`
+    } else if (/一|二|三|1|2|3/.test(grade) && /年级/.test(grade)) {
+      gradeConstraint = `\n约束：该题目属于${grade}（小学低年级），标签应限于加减法、乘法口诀、认识图形、长度单位、人民币、时间等基础内容。`
+    }
+  }
 
   const prompt = `请为以下数学题生成标签。要求：
 1. 生成 2-5 个标签
 2. 标签要精确描述题目涉及的知识点、题型、方法等
 3. 只返回标签列表，用英文逗号分隔，不要其他内容
-4. 标签使用中文
+4. 标签使用中文${gradeConstraint}
 
 题目：${content}`
 

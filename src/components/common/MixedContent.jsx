@@ -8,25 +8,35 @@ function parseMixedContent(text) {
   if (!text) return []
 
   // ── Step 0: Extract \begin{tabular}...\end{tabular} blocks ──
+  // Handle both bare tabular and $$\begin{tabular}...\end{tabular}$$
   const tabularBlocks = []
   let processed = text
   let tabIdx = 0
   while (true) {
-    const beginTag = '\\begin{tabular}'
-    const endTag = '\\end{tabular}'
-    const bIdx = processed.indexOf(beginTag)
+    const bIdx = processed.indexOf('\\begin{tabular}')
     if (bIdx < 0) break
-    const eIdx = processed.indexOf(endTag, bIdx + beginTag.length)
+    const eIdx = processed.indexOf('\\end{tabular}', bIdx)
     if (eIdx < 0) break
-    const fullEnd = eIdx + endTag.length
-    const raw = processed.slice(bIdx, fullEnd)
-    const placeholder = `\x00TABULAR_${tabIdx}\x00`
+    const fullEnd = eIdx + '\\end{tabular}'.length
+
+    // Check if wrapped in $$...$$
+    let start = bIdx
+    let end = fullEnd
+    if (start >= 2 && processed.slice(start - 2, start) === '$$') {
+      start -= 2
+    }
+    if (end + 2 <= processed.length && processed.slice(end, end + 2) === '$$') {
+      end += 2
+    }
+
+    const raw = processed.slice(bIdx, eIdx + '\\end{tabular}'.length)
+    const placeholder = `\x00T${tabIdx}\x00`
     tabularBlocks.push({ placeholder, raw })
-    processed = processed.slice(0, bIdx) + placeholder + processed.slice(fullEnd)
+    processed = processed.slice(0, start) + placeholder + processed.slice(end)
     tabIdx++
   }
 
-  // ── Step 1: Parse $ delimiters (same as before) ──
+  // ── Step 1: Parse $ delimiters ──
   const segments = []
   let i = 0
 
@@ -54,9 +64,7 @@ function parseMixedContent(text) {
 
     if (nextDelim < 0) {
       const remaining = processed.slice(i)
-      if (remaining) {
-        segments.push({ type: 'text', content: remaining })
-      }
+      if (remaining) segments.push({ type: 'text', content: remaining })
       break
     }
 
@@ -76,17 +84,13 @@ function parseMixedContent(text) {
         if (pos < 0) break
         const prevIsDollar = pos > 0 && processed[pos - 1] === '$'
         const nextIsDollar = pos < processed.length - 1 && processed[pos + 1] === '$'
-        if (!prevIsDollar && !nextIsDollar) {
-          closeIdx = pos
-          break
-        }
+        if (!prevIsDollar && !nextIsDollar) { closeIdx = pos; break }
         search = pos + 1
       }
     }
 
     if (closeIdx >= 0) {
-      const mathContent = processed.slice(contentStart, closeIdx)
-      segments.push({ type: delimType, content: mathContent })
+      segments.push({ type: delimType, content: processed.slice(contentStart, closeIdx) })
       i = closeIdx + delimLen
     } else {
       segments.push({ type: 'text', content: processed.slice(i) })
@@ -97,21 +101,17 @@ function parseMixedContent(text) {
   // ── Step 2: Expand tabular placeholders inside text segments ──
   const finalSegments = []
   for (const seg of segments) {
-    if (seg.type === 'text') {
+    if (seg.type === 'text' && seg.content.includes('\x00')) {
       let remaining = seg.content
       for (const tb of tabularBlocks) {
         const idx = remaining.indexOf(tb.placeholder)
         if (idx >= 0) {
-          if (idx > 0) {
-            finalSegments.push({ type: 'text', content: remaining.slice(0, idx) })
-          }
+          if (idx > 0) finalSegments.push({ type: 'text', content: remaining.slice(0, idx) })
           finalSegments.push({ type: 'tabular', raw: tb.raw })
           remaining = remaining.slice(idx + tb.placeholder.length)
         }
       }
-      if (remaining) {
-        finalSegments.push({ type: 'text', content: remaining })
-      }
+      if (remaining) finalSegments.push({ type: 'text', content: remaining })
     } else {
       finalSegments.push(seg)
     }
@@ -121,30 +121,26 @@ function parseMixedContent(text) {
 }
 
 /**
- * Parse a LaTeX \begin{tabular}{colspec}...\end{tabular} block
- * into structured rows and cells for HTML rendering.
+ * Parse a LaTeX \begin{tabular}{colspec}...\end{tabular} block.
  */
 function parseTabular(raw) {
-  // Extract column spec — handle |c|c|c|, {c@{}l}, p{3cm}, etc.
   const specMatch = raw.match(/\\begin\{tabular\}\{([^}]*)\}/)
   const colSpec = specMatch ? specMatch[1] : ''
 
-  // Extract body: after the closing } of colSpec, before \end{tabular}
   const beginEnd = raw.indexOf('}', raw.indexOf('\\begin{tabular}'))
   const bodyStart = beginEnd + 1
   const bodyEnd = raw.lastIndexOf('\\end{tabular}')
   let body = raw.slice(bodyStart, bodyEnd).trim()
 
-  // Clean up: remove \hline, \cline{...}, \toprule, \midrule, \bottomrule
+  // Clean up hlines and rules
   body = body.replace(/\\(?:hline|toprule|midrule|bottomrule)\s*/g, '')
   body = body.replace(/\\cline\{[^}]*\}\s*/g, '')
 
-  // Split rows by \\ (may have trailing optional arg \\[2pt])
+  // Split rows by \\
   const rawRows = body.split(/\\\\(?:\[[^\]]*\])?/).map(r => r.trim()).filter(Boolean)
 
   const rows = rawRows.map(row => {
     if (!row) return null
-    // Split cells by & (outside of $...$ math delimiters)
     const cells = splitByAmpersand(row)
     return cells.map(c => cleanCellContent(c))
   }).filter(r => r && r.length > 0)
@@ -160,32 +156,20 @@ function parseTabular(raw) {
   return { rows, colAlignments, hasVLines: colSpec.includes('|') }
 }
 
-/**
- * Split a row string by & but respect $...$ math delimiters.
- */
 function splitByAmpersand(str) {
   const cells = []
   let current = ''
   let inMath = false
   for (let i = 0; i < str.length; i++) {
     const ch = str[i]
-    if (ch === '$') {
-      inMath = !inMath
-      current += ch
-    } else if (ch === '&' && !inMath) {
-      cells.push(current)
-      current = ''
-    } else {
-      current += ch
-    }
+    if (ch === '$') { inMath = !inMath; current += ch }
+    else if (ch === '&' && !inMath) { cells.push(current); current = '' }
+    else { current += ch }
   }
   cells.push(current)
   return cells
 }
 
-/**
- * Clean cell content: strip \multicolumn, \textbf, \textsf, etc.
- */
 function cleanCellContent(cell) {
   return cell
     .replace(/\\multicolumn\{[^}]*\}\{[^}]*\}\{([^}]*)\}/g, '$1')
@@ -196,54 +180,31 @@ function cleanCellContent(cell) {
     .trim()
 }
 
-/**
- * Render a single cell's content (may contain $...$ math inline).
- */
 function CellContent({ text }) {
   if (!text) return null
-  // Try to parse inline math within the cell
   const parts = []
   let remaining = text
   let key = 0
 
   while (remaining.length > 0) {
     const dollarIdx = remaining.indexOf('$')
-    if (dollarIdx < 0) {
-      parts.push(<span key={key++}>{remaining}</span>)
-      break
-    }
-    if (dollarIdx > 0) {
-      parts.push(<span key={key++}>{remaining.slice(0, dollarIdx)}</span>)
-    }
+    if (dollarIdx < 0) { parts.push(<span key={key++}>{remaining}</span>); break }
+    if (dollarIdx > 0) parts.push(<span key={key++}>{remaining.slice(0, dollarIdx)}</span>)
     const closeIdx = remaining.indexOf('$', dollarIdx + 1)
-    if (closeIdx < 0) {
-      parts.push(<span key={key++}>{remaining.slice(dollarIdx)}</span>)
-      break
-    }
+    if (closeIdx < 0) { parts.push(<span key={key++}>{remaining.slice(dollarIdx)}</span>); break }
     const mathStr = remaining.slice(dollarIdx + 1, closeIdx)
-    try {
-      parts.push(<InlineMath key={key++} math={mathStr} />)
-    } catch {
-      parts.push(<span key={key++} className="text-red-500">${mathStr}$</span>)
-    }
+    try { parts.push(<InlineMath key={key++} math={mathStr} />) }
+    catch { parts.push(<span key={key++} className="text-red-500">${mathStr}$</span>) }
     remaining = remaining.slice(closeIdx + 1)
   }
-
   return <>{parts}</>
 }
 
-/**
- * Render a parsed tabular structure as an HTML table.
- */
 function TabularTable({ raw }) {
   const { rows, colAlignments, hasVLines } = parseTabular(raw)
   if (!rows || rows.length === 0) return null
-
   const maxCols = Math.max(...rows.map(r => r.length))
-
-  const getAlign = (colIdx) => {
-    return colAlignments[colIdx] || 'center'
-  }
+  const getAlign = (ci) => colAlignments[ci] || 'center'
 
   return (
     <div className="my-3 overflow-x-auto">
@@ -252,20 +213,18 @@ function TabularTable({ raw }) {
           {rows.map((row, ri) => (
             <tr key={ri}>
               {row.map((cell, ci) => (
-                <td
-                  key={ci}
-                  className={`border border-gray-400 px-3 py-1.5 whitespace-nowrap
-                    ${hasVLines ? 'border-l border-r border-gray-600' : ''}
-                    ${ri === 0 ? 'border-t border-gray-600' : ''}
-                    ${ri === rows.length - 1 ? 'border-b border-gray-600' : ''}`}
-                  style={{ textAlign: getAlign(ci) }}
-                >
+                <td key={ci}
+                  className={`border border-gray-400 px-3 py-1.5
+                    ${ri === 0 ? 'border-t-2 border-gray-700' : ''}
+                    ${ri === rows.length - 1 ? 'border-b-2 border-gray-700' : ''}
+                    ${ci === 0 && hasVLines ? 'border-l-2 border-gray-700' : ''}
+                    ${ci === row.length - 1 && hasVLines ? 'border-r-2 border-gray-700' : ''}`}
+                  style={{ textAlign: getAlign(ci) }}>
                   <CellContent text={cell} />
                 </td>
               ))}
-              {/* Fill empty cells if row has fewer columns */}
               {row.length < maxCols && Array.from({ length: maxCols - row.length }, (_, i) => (
-                <td key={`empty-${i}`} className="border border-gray-400 px-3 py-1.5" />
+                <td key={`e-${i}`} className="border border-gray-400 px-3 py-1.5" />
               ))}
             </tr>
           ))}
@@ -275,32 +234,92 @@ function TabularTable({ raw }) {
   )
 }
 
+// ─── Choice option formatting ───────────────────────────────
+
 /**
- * Expand fill-in-the-blank patterns () with appropriate spacing.
- * Blank width = answer_length * 0.5 characters (minimum 4 chars).
+ * Detect A/B/C/D choice options and format them with proper line breaks.
+ * Layout rules:
+ *   4 options → 2 per line (A. xx  B. xx \n C. xx  D. xx)
+ *   3 options → 1 per line
+ *   2 options → 1 line (A. xx  B. xx)
  */
+function formatChoiceOptions(text) {
+  // Match patterns like "A. xxx" or "A．xxx" (Chinese period)
+  const optionPattern = /(?:(?:^|\n)\s*|[　 ])([A-D][.．]\s*)/g
+  const matches = [...text.matchAll(optionPattern)]
+
+  if (matches.length < 2) return text
+
+  // Split content at each option boundary
+  const parts = []
+  let lastEnd = 0
+  for (const m of matches) {
+    const idx = m.index
+    if (idx > lastEnd) {
+      const before = text.slice(lastEnd, idx).trim()
+      if (before) parts.push(before)
+    }
+    // Find end of this option: next option start or end of string
+    const nextMatch = matches[matches.indexOf(m) + 1]
+    const optEnd = nextMatch ? nextMatch.index : text.length
+    parts.push(text.slice(idx, optEnd).trim())
+    lastEnd = optEnd
+  }
+  // Remaining after last option
+  if (lastEnd < text.length) {
+    const rest = text.slice(lastEnd).trim()
+    if (rest) parts.push(rest)
+  }
+
+  const optionParts = parts.filter(p => /^[A-D][.．]/.test(p))
+  const nonOptionParts = parts.filter(p => !/^[A-D][.．]/.test(p))
+  const count = optionParts.length
+
+  if (count < 2) return text
+
+  // Rejoin options with proper spacing
+  let formatted = ''
+  if (nonOptionParts.length > 0) {
+    formatted = nonOptionParts.join('\n') + '\n'
+  }
+
+  if (count === 4) {
+    // 2 per line
+    formatted += optionParts[0] + '  ' + optionParts[1] + '\n' + optionParts[2] + '  ' + optionParts[3]
+  } else if (count === 2) {
+    // 1 line
+    formatted += optionParts[0] + '  ' + optionParts[1]
+  } else {
+    // 1 per line (3 or more non-standard)
+    formatted += optionParts.join('\n')
+  }
+
+  return formatted
+}
+
+// ─── Fill-in-the-blank ───────────────────────────────────────
+
 function expandBlanks(text, answer) {
   if (!answer) return text
   const ansLen = answer.replace(/\$/g, '').replace(/\\[a-zA-Z]+\{?[^}]*\}?/g, 'X').length
   const blankChars = Math.max(4, Math.round(ansLen * 0.5))
-  // Replace empty () and （ ） with blank space (using Unicode em-space)
   const blank = ' '.repeat(blankChars)
   return text
     .replace(/\(\s*\)/g, `（${blank}）`)
     .replace(/（\s*）/g, `（${blank}）`)
 }
 
+// ─── Render ──────────────────────────────────────────────────
+
 function renderSegment(seg, index, answer) {
   if (seg.type === 'text') {
-    const processed = expandBlanks(seg.content, answer)
+    const withOptions = formatChoiceOptions(seg.content)
+    const processed = expandBlanks(withOptions, answer)
     const parts = processed.split('\n')
     return (
       <span key={index}>
         {parts.map((part, i) => (
-          <span key={i}>
-            {part}
-            {i < parts.length - 1 && <br />}
-          </span>
+          <span key={i}>{part}{i < parts.length - 1 && <br />}</span>
         ))}
       </span>
     )
@@ -308,27 +327,20 @@ function renderSegment(seg, index, answer) {
 
   if (seg.type === 'inline') {
     if (!seg.content.trim()) return null
-    try {
-      return <InlineMath key={index} math={seg.content} />
-    } catch {
-      return (
-        <span key={index} className="text-red-500">${seg.content}$</span>
-      )
-    }
+    try { return <InlineMath key={index} math={seg.content} /> }
+    catch { return <span key={index} className="text-red-500">${seg.content}$</span> }
   }
 
   if (seg.type === 'block') {
     if (!seg.content.trim()) return null
+    // Check if block content contains tabular
+    if (seg.content.includes('\\begin{tabular}')) {
+      return <TabularTable key={index} raw={seg.content} />
+    }
     try {
-      return (
-        <div key={index} className="my-2">
-          <BlockMath math={seg.content} />
-        </div>
-      )
+      return <div key={index} className="my-2"><BlockMath math={seg.content} /></div>
     } catch {
-      return (
-        <div key={index} className="my-2 text-red-500 whitespace-pre-wrap">$$ {seg.content} $$</div>
-      )
+      return <div key={index} className="my-2 text-red-500 whitespace-pre-wrap">$$ {seg.content} $$</div>
     }
   }
 
@@ -346,27 +358,24 @@ export default function MixedContent({ content, answer, className = '' }) {
 
   const hasTabular = content.includes('\\begin{tabular}')
 
-  // If no math delimiters and no tabular, render as plain text with blank expansion
   if (!content.includes('$') && !hasTabular) {
-    const processed = expandBlanks(content, answer)
+    const withOptions = formatChoiceOptions(content)
+    const processed = expandBlanks(withOptions, answer)
     return <span className={className}>{processed}</span>
   }
 
   try {
     const segments = parseMixedContent(content)
-
     if (segments.length === 0) {
       const processed = expandBlanks(content, answer)
       return <span className={className}>{processed}</span>
     }
-
     return (
       <span className={className}>
         {segments.map((seg, i) => renderSegment(seg, i, answer))}
       </span>
     )
   } catch {
-    // Fallback: show raw text if parsing fails
     return <span className={className}>{content}</span>
   }
 }

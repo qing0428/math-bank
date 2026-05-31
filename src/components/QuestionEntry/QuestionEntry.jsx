@@ -137,7 +137,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
     for (let i = 0; i < updated.length; i++) {
       if (!updated[i].content?.trim()) continue
       try {
-        const tags = await autoTag(updated[i].content, llmConfig.text)
+        const tags = await autoTag(updated[i].content, llmConfig.text, updated[i].grade)
         const existing = new Set(updated[i].tags || [])
         updated[i] = { ...updated[i], tags: [...new Set([...(updated[i].tags || []), ...tags])] }
       } catch (err) {

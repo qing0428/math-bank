@@ -33,6 +33,7 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
   const [autoGenerate, setAutoGenerate] = useState(false)
   const [fastMode, setFastMode] = useState(false)
   const [showCropper, setShowCropper] = useState(false)
+  const [showNotes, setShowNotes] = useState(false)
 
   const textConfigured = llmConfig?.text?.connected && llmConfig?.text?.model
 
@@ -89,7 +90,7 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
     setTagging(true)
     setSuggestedTags([])
     try {
-      const tags = await autoTag(question.content, llmConfig.text)
+      const tags = await autoTag(question.content, llmConfig.text, question.grade)
       // Filter out tags already on the question
       const existing = new Set(question.tags || [])
       const newTags = tags.filter(t => !existing.has(t))
@@ -219,6 +220,7 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
       <div>
         <label className="block text-xs font-medium text-gray-500 mb-1">难度星级</label>
         <StarRating value={question.difficulty || 0} onChange={(v) => update('difficulty', v)} />
+        <p className="text-xs text-gray-400 mt-1">1=基础计算 2=简单应用 3=综合运用 4=较难综合 5=竞赛难度</p>
       </div>
 
       {/* Tags */}
@@ -303,17 +305,34 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
         )}
       </div>
 
-      {/* Notes */}
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">备注</label>
-        <textarea
-          value={question.notes || ''}
-          onChange={(e) => update('notes', e.target.value)}
-          placeholder="可选备注信息..."
-          rows={2}
-          className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500 resize-none"
-        />
-      </div>
+      {/* Notes — toggle to show */}
+      {!showNotes ? (
+        <button
+          onClick={() => setShowNotes(true)}
+          className="text-xs text-gray-400 hover:text-gray-600 cursor-pointer flex items-center gap-1"
+        >
+          📝 添加备注
+        </button>
+      ) : (
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium text-gray-500">备注</label>
+            <button
+              onClick={() => setShowNotes(false)}
+              className="text-xs text-gray-400 hover:text-red-500 cursor-pointer"
+            >
+              ✕ 收起
+            </button>
+          </div>
+          <textarea
+            value={question.notes || ''}
+            onChange={(e) => update('notes', e.target.value)}
+            placeholder="可选备注信息..."
+            rows={2}
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500 resize-none"
+          />
+        </div>
+      )}
 
       {/* Divider */}
       <hr className="border-border" />
@@ -330,8 +349,8 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
         />
       </div>
 
-      {/* Attached image (from batch recognition) */}
-      {question.imageUrl && (
+      {/* Attached image (from batch recognition) or attach button */}
+      {question.imageUrl ? (
         <div className="bg-blue-50 rounded-lg border border-blue-200 p-3">
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-medium text-blue-700">📎 附带图片</label>
@@ -362,6 +381,29 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
             />
           </div>
           <p className="text-xs text-blue-400 mt-1 text-center">点击图片裁剪</p>
+        </div>
+      ) : (
+        <div>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            id="attach-image-input"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (!file) return
+              const reader = new FileReader()
+              reader.onload = () => update('imageUrl', reader.result)
+              reader.readAsDataURL(file)
+              e.target.value = ''
+            }}
+          />
+          <label
+            htmlFor="attach-image-input"
+            className="flex items-center justify-center gap-1 py-2 rounded-lg border border-dashed border-gray-300 text-xs text-gray-400 hover:border-primary-300 hover:text-primary-500 cursor-pointer transition-colors"
+          >
+            📎 附带图片
+          </label>
         </div>
       )}
 
