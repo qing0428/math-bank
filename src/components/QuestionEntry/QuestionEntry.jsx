@@ -10,6 +10,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
   const [saved, setSaved] = useState(false)
   const [batchQuestions, setBatchQuestions] = useState([])
   const [selectedBatchIndex, setSelectedBatchIndex] = useState(-1)
+  const [batchImages, setBatchImages] = useState([])
   const [examName, setExamName] = useState('')
 
   const handleImageRecognized = (result) => {
@@ -29,6 +30,10 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
   }
 
   const handleBatchRecognized = (results) => {
+    // Collect unique source images from batch results
+    const uniqueImages = [...new Set(results.map(r => r.imageUrl).filter(Boolean))]
+    setBatchImages(uniqueImages)
+
     // Create question objects from batch results
     const batchList = results.map((r, i) => {
       // Only attach image if question content references a diagram/table
@@ -117,6 +122,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
           // All saved, reset
           setBatchQuestions([])
           setSelectedBatchIndex(-1)
+          setBatchImages([])
           setQuestion(createQuestion())
         }
       } else {
@@ -188,6 +194,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
             selectedBatchIndex={selectedBatchIndex}
             onSelectBatchQuestion={selectBatchQuestion}
             onBatchAutoTag={handleBatchAutoTag}
+            batchImages={batchImages}
           />
         </div>
 

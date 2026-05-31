@@ -1,55 +1,85 @@
 import { InlineMath, BlockMath } from 'react-katex'
 
 /**
- * Parse mixed content (Chinese text + $...$ / $$...$$ LaTeX)
- * into an array of segments: { type: 'text' | 'inline' | 'block' | 'tabular', content: string }
+ * Parse mixed content into segments.
+ * Scans linearly: tabular blocks first, then $ delimiters, then plain text.
  */
 function parseMixedContent(text) {
   if (!text) return []
-
-  // ── Step 0: Extract \begin{tabular}...\end{tabular} blocks ──
-  // Handle both bare tabular and $$\begin{tabular}...\end{tabular}$$
-  const tabularBlocks = []
-  let processed = text
-  let tabIdx = 0
-  while (true) {
-    const bIdx = processed.indexOf('\\begin{tabular}')
-    if (bIdx < 0) break
-    const eIdx = processed.indexOf('\\end{tabular}', bIdx)
-    if (eIdx < 0) break
-    const fullEnd = eIdx + '\\end{tabular}'.length
-
-    // Check if wrapped in $$...$$
-    let start = bIdx
-    let end = fullEnd
-    if (start >= 2 && processed.slice(start - 2, start) === '$$') {
-      start -= 2
-    }
-    if (end + 2 <= processed.length && processed.slice(end, end + 2) === '$$') {
-      end += 2
-    }
-
-    const raw = processed.slice(bIdx, eIdx + '\\end{tabular}'.length)
-    const placeholder = `\x00T${tabIdx}\x00`
-    tabularBlocks.push({ placeholder, raw })
-    processed = processed.slice(0, start) + placeholder + processed.slice(end)
-    tabIdx++
-  }
-
-  // ── Step 1: Parse $ delimiters ──
   const segments = []
   let i = 0
 
-  while (i < processed.length) {
+  while (i < text.length) {
+    // ── Check for \begin{tabular} at current position ──
+    const tabBegin = '\\begin{tabular}'
+    const tabEnd = '\\end{tabular}'
+    const tbIdx = text.indexOf(tabBegin, i)
+
+    // Also check for $$\begin{tabular}
+    let tabStart = tbIdx
+    let hasDoubleDollar = false
+    if (tbIdx >= 2 && text.slice(tbIdx - 2, tbIdx) === '$$') {
+      tabStart = tbIdx - 2
+      hasDoubleDollar = true
+    }
+
+    // If tabular found at or near current position, extract it
+    if (tbIdx === i || (hasDoubleDollar && tabStart === i)) {
+      const endIdx = text.indexOf(tabEnd, tbIdx + tabBegin.length)
+      if (endIdx >= 0) {
+        const fullEnd = endIdx + tabEnd.length
+        // Skip trailing $$ if present
+        let consumeEnd = fullEnd
+        if (text.slice(fullEnd, fullEnd + 2) === '$$') consumeEnd += 2
+        const raw = text.slice(tbIdx, fullEnd)
+        segments.push({ type: 'tabular', raw })
+        i = consumeEnd
+        continue
+      }
+    }
+
+    // If tabular is ahead but not at current position, process text until then
+    if (tbIdx > i) {
+      const textChunk = text.slice(i, tabStart >= 0 ? tabStart : tbIdx)
+      parseDelimiters(textChunk, segments)
+      i = tabStart >= 0 ? tabStart : tbIdx
+      continue
+    }
+
+    // No more tabular blocks, parse remaining text for $ delimiters
+    parseDelimiters(text.slice(i), segments)
+    break
+  }
+
+  return segments
+}
+
+/**
+ * Parse $ and $$ delimiters in a plain text chunk and push to segments.
+ */
+function parseDelimiters(text, segments) {
+  if (!text) return
+  let i = 0
+
+  while (i < text.length) {
+    // Find next $ delimiter
     let nextDelim = -1
     let delimType = null
     let delimLen = 0
 
-    let bi = processed.indexOf('$$', i)
-    let ci = processed.indexOf('$', i)
+    // Look for $$
+    const bi = text.indexOf('$$', i)
+    // Look for single $
+    let ci = text.indexOf('$', i)
+    // Skip $ that are part of $$
     while (ci >= 0 && ci === bi) {
-      ci = processed.indexOf('$', ci + 2)
-      bi = processed.indexOf('$$', i)
+      ci = text.indexOf('$', ci + 2)
+    }
+    // Also skip $ immediately before or after $$
+    if (ci >= 0 && bi >= 0) {
+      if (ci === bi + 1) {
+        ci = text.indexOf('$', ci + 1)
+      }
     }
 
     if (bi >= 0 && (ci < 0 || bi <= ci)) {
@@ -63,66 +93,51 @@ function parseMixedContent(text) {
     }
 
     if (nextDelim < 0) {
-      const remaining = processed.slice(i)
+      const remaining = text.slice(i)
       if (remaining) segments.push({ type: 'text', content: remaining })
       break
     }
 
     if (nextDelim > i) {
-      segments.push({ type: 'text', content: processed.slice(i, nextDelim) })
+      segments.push({ type: 'text', content: text.slice(i, nextDelim) })
     }
 
     const contentStart = nextDelim + delimLen
     let closeIdx = -1
 
     if (delimType === 'block') {
-      closeIdx = processed.indexOf('$$', contentStart)
+      closeIdx = text.indexOf('$$', contentStart)
     } else {
+      // Find closing $ that is not part of $$
       let search = contentStart
-      while (search < processed.length) {
-        const pos = processed.indexOf('$', search)
+      while (search < text.length) {
+        const pos = text.indexOf('$', search)
         if (pos < 0) break
-        const prevIsDollar = pos > 0 && processed[pos - 1] === '$'
-        const nextIsDollar = pos < processed.length - 1 && processed[pos + 1] === '$'
-        if (!prevIsDollar && !nextIsDollar) { closeIdx = pos; break }
+        const prevIsDollar = pos > 0 && text[pos - 1] === '$'
+        const nextIsDollar = pos < text.length - 1 && text[pos + 1] === '$'
+        if (!prevIsDollar && !nextIsDollar) {
+          closeIdx = pos
+          break
+        }
         search = pos + 1
       }
     }
 
     if (closeIdx >= 0) {
-      segments.push({ type: delimType, content: processed.slice(contentStart, closeIdx) })
+      const mathContent = text.slice(contentStart, closeIdx)
+      if (mathContent.trim()) {
+        segments.push({ type: delimType, content: mathContent })
+      }
       i = closeIdx + delimLen
     } else {
-      segments.push({ type: 'text', content: processed.slice(i) })
+      segments.push({ type: 'text', content: text.slice(i) })
       break
     }
   }
-
-  // ── Step 2: Expand tabular placeholders inside text segments ──
-  const finalSegments = []
-  for (const seg of segments) {
-    if (seg.type === 'text' && seg.content.includes('\x00')) {
-      let remaining = seg.content
-      for (const tb of tabularBlocks) {
-        const idx = remaining.indexOf(tb.placeholder)
-        if (idx >= 0) {
-          if (idx > 0) finalSegments.push({ type: 'text', content: remaining.slice(0, idx) })
-          finalSegments.push({ type: 'tabular', raw: tb.raw })
-          remaining = remaining.slice(idx + tb.placeholder.length)
-        }
-      }
-      if (remaining) finalSegments.push({ type: 'text', content: remaining })
-    } else {
-      finalSegments.push(seg)
-    }
-  }
-
-  return finalSegments
 }
 
-/**
- * Parse a LaTeX \begin{tabular}{colspec}...\end{tabular} block.
- */
+// ─── Tabular parsing ─────────────────────────────────────────
+
 function parseTabular(raw) {
   const specMatch = raw.match(/\\begin\{tabular\}\{([^}]*)\}/)
   const colSpec = specMatch ? specMatch[1] : ''
@@ -132,11 +147,9 @@ function parseTabular(raw) {
   const bodyEnd = raw.lastIndexOf('\\end{tabular}')
   let body = raw.slice(bodyStart, bodyEnd).trim()
 
-  // Clean up hlines and rules
   body = body.replace(/\\(?:hline|toprule|midrule|bottomrule)\s*/g, '')
   body = body.replace(/\\cline\{[^}]*\}\s*/g, '')
 
-  // Split rows by \\
   const rawRows = body.split(/\\\\(?:\[[^\]]*\])?/).map(r => r.trim()).filter(Boolean)
 
   const rows = rawRows.map(row => {
@@ -145,7 +158,6 @@ function parseTabular(raw) {
     return cells.map(c => cleanCellContent(c))
   }).filter(r => r && r.length > 0)
 
-  // Parse column alignment
   const colAlignments = []
   for (const ch of colSpec) {
     if (ch === 'l') colAlignments.push('left')
@@ -223,8 +235,8 @@ function TabularTable({ raw }) {
                   <CellContent text={cell} />
                 </td>
               ))}
-              {row.length < maxCols && Array.from({ length: maxCols - row.length }, (_, i) => (
-                <td key={`e-${i}`} className="border border-gray-400 px-3 py-1.5" />
+              {row.length < maxCols && Array.from({ length: maxCols - row.length }, (_, k) => (
+                <td key={`e-${k}`} className="border border-gray-400 px-3 py-1.5" />
               ))}
             </tr>
           ))}
@@ -236,62 +248,28 @@ function TabularTable({ raw }) {
 
 // ─── Choice option formatting ───────────────────────────────
 
-/**
- * Detect A/B/C/D choice options and format them with proper line breaks.
- * Layout rules:
- *   4 options → 2 per line (A. xx  B. xx \n C. xx  D. xx)
- *   3 options → 1 per line
- *   2 options → 1 line (A. xx  B. xx)
- */
 function formatChoiceOptions(text) {
-  // Match patterns like "A. xxx" or "A．xxx" (Chinese period)
-  const optionPattern = /(?:(?:^|\n)\s*|[　 ])([A-D][.．]\s*)/g
+  const optionPattern = /(?:^|\n|\r)\s*([A-D][.．]\s*[^\n]*?)(?=\s*[A-D][.．]|\s*$)/gm
   const matches = [...text.matchAll(optionPattern)]
 
   if (matches.length < 2) return text
 
-  // Split content at each option boundary
-  const parts = []
-  let lastEnd = 0
-  for (const m of matches) {
-    const idx = m.index
-    if (idx > lastEnd) {
-      const before = text.slice(lastEnd, idx).trim()
-      if (before) parts.push(before)
-    }
-    // Find end of this option: next option start or end of string
-    const nextMatch = matches[matches.indexOf(m) + 1]
-    const optEnd = nextMatch ? nextMatch.index : text.length
-    parts.push(text.slice(idx, optEnd).trim())
-    lastEnd = optEnd
-  }
-  // Remaining after last option
-  if (lastEnd < text.length) {
-    const rest = text.slice(lastEnd).trim()
-    if (rest) parts.push(rest)
-  }
+  // Collect option texts
+  const options = matches.map(m => m[1].trim())
+  const count = options.length
 
-  const optionParts = parts.filter(p => /^[A-D][.．]/.test(p))
-  const nonOptionParts = parts.filter(p => !/^[A-D][.．]/.test(p))
-  const count = optionParts.length
+  // Get text before first option
+  const firstIdx = matches[0].index
+  const before = text.slice(0, firstIdx).replace(/\s+$/, '')
 
-  if (count < 2) return text
-
-  // Rejoin options with proper spacing
-  let formatted = ''
-  if (nonOptionParts.length > 0) {
-    formatted = nonOptionParts.join('\n') + '\n'
-  }
+  let formatted = before ? before + '\n' : ''
 
   if (count === 4) {
-    // 2 per line
-    formatted += optionParts[0] + '  ' + optionParts[1] + '\n' + optionParts[2] + '  ' + optionParts[3]
+    formatted += options[0] + '　　' + options[1] + '\n' + options[2] + '　　' + options[3]
   } else if (count === 2) {
-    // 1 line
-    formatted += optionParts[0] + '  ' + optionParts[1]
+    formatted += options[0] + '　　' + options[1]
   } else {
-    // 1 per line (3 or more non-standard)
-    formatted += optionParts.join('\n')
+    formatted += options.join('\n')
   }
 
   return formatted
@@ -333,7 +311,6 @@ function renderSegment(seg, index, answer) {
 
   if (seg.type === 'block') {
     if (!seg.content.trim()) return null
-    // Check if block content contains tabular
     if (seg.content.includes('\\begin{tabular}')) {
       return <TabularTable key={index} raw={seg.content} />
     }
@@ -367,7 +344,8 @@ export default function MixedContent({ content, answer, className = '' }) {
   try {
     const segments = parseMixedContent(content)
     if (segments.length === 0) {
-      const processed = expandBlanks(content, answer)
+      const withOptions = formatChoiceOptions(content)
+      const processed = expandBlanks(withOptions, answer)
       return <span className={className}>{processed}</span>
     }
     return (

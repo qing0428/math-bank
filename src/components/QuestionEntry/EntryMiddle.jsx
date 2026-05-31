@@ -17,13 +17,30 @@ function stripForPreview(text) {
     .trim()
 }
 
-// Common preset tags shown below the input
-const PRESET_TAGS = [
-  '计算', '方程', '几何', '函数', '应用题', '证明',
-  '选择题', '填空题', '解答题', '数形结合', '分类讨论', '综合',
-]
+// Common preset tags — filtered by grade level
+const PRESET_TAGS_BY_GRADE = {
+  // 小学低年级（一至三年级）
+  primary_low: ['加法', '减法', '乘法', '除法', '口算', '应用题', '认识图形', '长度单位', '人民币', '时间', '选择题', '填空题', '计算'],
+  // 小学高年级（四至六年级）
+  primary_high: ['大数认识', '乘除法', '平行四边形', '梯形', '鸡兔同笼', '条形统计图', '植树问题', '数学广角', '运算律', '角的度量', '选择题', '填空题', '解决问题', '计算', '应用题'],
+  // 初中
+  middle: ['方程', '不等式', '函数', '几何', '三角形', '全等', '相似', '圆', '概率', '统计', '选择题', '填空题', '解答题', '证明', '计算', '数形结合'],
+  // 高中
+  high: ['函数', '三角函数', '数列', '不等式', '向量', '立体几何', '解析几何', '导数', '概率统计', '选择题', '填空题', '解答题', '证明', '数形结合', '分类讨论'],
+  // 默认
+  default: ['计算', '方程', '几何', '函数', '应用题', '证明', '选择题', '填空题', '解答题', '数形结合', '分类讨论', '综合'],
+}
 
-export default function EntryMiddle({ question, onChange, llmConfig, batchQuestions, selectedBatchIndex, onSelectBatchQuestion, onBatchAutoTag }) {
+function getPresetTags(grade) {
+  if (!grade) return PRESET_TAGS_BY_GRADE.default
+  if (/^[一二三]年级/.test(grade)) return PRESET_TAGS_BY_GRADE.primary_low
+  if (/^[四五六]年级/.test(grade)) return PRESET_TAGS_BY_GRADE.primary_high
+  if (/七|八|九|初[一二三]/.test(grade)) return PRESET_TAGS_BY_GRADE.middle
+  if (/高[一二三]/.test(grade)) return PRESET_TAGS_BY_GRADE.high
+  return PRESET_TAGS_BY_GRADE.default
+}
+
+export default function EntryMiddle({ question, onChange, llmConfig, batchQuestions, selectedBatchIndex, onSelectBatchQuestion, onBatchAutoTag, batchImages = [] }) {
   const [tagInput, setTagInput] = useState('')
   const [suggestedTags, setSuggestedTags] = useState([])
   const [tagging, setTagging] = useState(false)
@@ -247,9 +264,9 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
           </button>
         </div>
 
-        {/* Preset tags — always visible, click to toggle */}
+        {/* Preset tags — grade-aware, click to toggle */}
         <div className="flex flex-wrap gap-1.5 mt-2">
-          {PRESET_TAGS.map(tag => {
+          {getPresetTags(question.grade).map(tag => {
             const added = (question.tags || []).includes(tag)
             return (
               <button
@@ -382,6 +399,21 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
           </div>
           <p className="text-xs text-blue-400 mt-1 text-center">点击图片裁剪</p>
         </div>
+      ) : batchImages.length > 0 ? (
+        <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
+          <label className="text-xs font-medium text-gray-500 mb-2 block">📎 附带图片（点击选择）</label>
+          <div className="flex flex-wrap gap-2">
+            {batchImages.map((img, idx) => (
+              <div
+                key={idx}
+                onClick={() => update('imageUrl', img)}
+                className="w-16 h-16 rounded border border-gray-200 overflow-hidden cursor-pointer hover:border-primary-400 transition-colors flex-shrink-0"
+              >
+                <img src={img} alt={`图片${idx + 1}`} className="w-full h-full object-cover" />
+              </div>
+            ))}
+          </div>
+        </div>
       ) : (
         <div>
           <input
@@ -402,7 +434,7 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
             htmlFor="attach-image-input"
             className="flex items-center justify-center gap-1 py-2 rounded-lg border border-dashed border-gray-300 text-xs text-gray-400 hover:border-primary-300 hover:text-primary-500 cursor-pointer transition-colors"
           >
-            📎 附带图片
+            📎 上传图片
           </label>
         </div>
       )}
