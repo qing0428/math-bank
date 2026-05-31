@@ -41,15 +41,15 @@ npm run dev
 ### Docker 部署
 
 ```bash
-# 构建并启动（单容器）
-docker compose build --no-cache
+# 拉取镜像并启动
+docker login ghcr.io -u qing0428
+docker compose pull
 docker compose up -d
-
-# 查看日志
-docker logs -f mathbank
 ```
 
 访问 http://localhost:3080
+
+> 📖 **详细部署教程**（飞牛 OS、群晖、威联通、Unraid、Linux）请参考 [DEPLOY.md](DEPLOY.md)
 
 ### 架构说明
 
