@@ -2,6 +2,9 @@ import { useMemo } from 'react'
 import MixedContent from '../common/MixedContent'
 import { generateFlatNumbers, generateNestedNumbers } from '../../utils/numbering'
 
+// Question types that need answer space in student version
+const NEEDS_SPACE_TYPES = ['解决问题', '解答题', '证明题', '画图题']
+
 export default function PaperPreview({
   questions,
   numberingMode,
@@ -12,6 +15,7 @@ export default function PaperPreview({
   studentId = true,
   examTime = '90',
   totalScore = '120',
+  showSealLine = true,
 }) {
   const numbered = useMemo(() => {
     if (questions.length === 0) return []
@@ -20,99 +24,86 @@ export default function PaperPreview({
   }, [questions, numberingMode])
 
   const isA3 = pageSize === 'A3'
+  const pageClass = isA3 ? 'max-w-[1122px]' : 'max-w-[794px]'
 
-  const pageClass = isA3
-    ? 'max-w-[1122px]'
-    : 'max-w-[794px]'
-
-  // ── A3 layout ──
+  // ── A3 layout: two columns with seal line ──
   if (isA3) {
+    // Split questions into two columns (left first, then right)
+    const half = Math.ceil(numbered.length / 2)
+    const leftCol = numbered.slice(0, half)
+    const rightCol = numbered.slice(half)
+
     return (
-      <div
-        className="bg-white rounded-xl border border-border shadow-sm overflow-y-auto h-full"
-        data-paper-container
-      >
+      <div className="bg-white rounded-xl border border-border shadow-sm overflow-y-auto h-full" data-paper-container>
         <div className={`mx-auto ${pageClass} p-8`}>
-          <div className="flex min-h-[600px]">
-            {/* ─── Left sidebar: seal line + student info ─── */}
-            <div className="flex-shrink-0 flex items-stretch">
-              {/* Student info fields */}
-              <div
-                className="flex flex-col items-center justify-start pt-6 pb-8 px-2 gap-2"
-                style={{
-                  writingMode: 'vertical-rl',
-                  textOrientation: 'mixed',
-                }}
-              >
-                <span className="text-base font-bold tracking-[0.3em] text-gray-800 mb-4">
-                  密 封 线
-                </span>
-                <span className="text-sm text-gray-600 leading-loose">
-                  姓名：_______________
-                </span>
-                <span className="text-sm text-gray-600 leading-loose">
-                  班级：_______________
-                </span>
-                {studentId && (
-                  <span className="text-sm text-gray-600 leading-loose">
-                    学号：_______________
+          <div className="flex min-h-[800px]">
+            {/* ─── Left sidebar: seal line ─── */}
+            {showSealLine && (
+              <div className="flex-shrink-0 relative" style={{ width: '3cm' }}>
+                {/* Seal line text + fields, vertical from top */}
+                <div
+                  className="absolute inset-0 flex flex-col items-center justify-start pt-8 pb-8 gap-3"
+                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
+                >
+                  <span className="text-base font-bold tracking-[0.3em] text-gray-800 mb-2">
+                    密 封 线
                   </span>
-                )}
-              </div>
-
-              {/* Vertical divider line */}
-              <div className="w-px bg-gray-800 mx-2 flex-shrink-0" />
-            </div>
-
-            {/* ─── Right: main content area ─── */}
-            <div className="flex-1 min-w-0 pl-4">
-              {/* School name */}
-              {schoolName && (
-                <div className="text-center mb-2">
-                  <span className="text-lg font-bold text-gray-900 tracking-wider">
-                    {schoolName}
+                  {studentId && (
+                    <span className="text-sm text-gray-600 leading-loose">
+                      学号：_______________
+                    </span>
+                  )}
+                  <span className="text-sm text-gray-600 leading-loose">
+                    姓名：_______________
+                  </span>
+                  <span className="text-sm text-gray-600 leading-loose">
+                    班级：_______________
                   </span>
                 </div>
-              )}
-
-              {/* Exam title */}
-              <div className="text-center mb-4">
-                <h1 className="text-xl font-bold text-gray-900 tracking-wider">
-                  {paperTitle || '数学试卷'}
-                </h1>
+                {/* Vertical divider */}
+                <div className="absolute right-0 top-0 bottom-0 w-px bg-gray-800" />
               </div>
+            )}
 
-              {/* Metadata line: proposer + time + score */}
-              <div className="flex justify-between items-center text-sm text-gray-600 mb-6 pb-3 border-b-2 border-gray-800">
+            {/* ─── Right: main content (two columns) ─── */}
+            <div className="flex-1 min-w-0 pl-4">
+              {/* Header */}
+              {schoolName && (
+                <div className="text-center mb-1">
+                  <span className="text-lg font-bold text-gray-900 tracking-wider">{schoolName}</span>
+                </div>
+              )}
+              <div className="text-center mb-2">
+                <h1 className="text-xl font-bold text-gray-900 tracking-wider">{paperTitle || '数学试卷'}</h1>
+              </div>
+              <div className="flex justify-between items-center text-sm text-gray-600 mb-4 pb-2 border-b border-gray-400">
                 <span>命题人：____________</span>
                 <span>考试时间：{examTime || '90'}分钟 &nbsp; 满分：{totalScore || '120'}分</span>
               </div>
 
-              {/* Questions */}
-              {numbered.length === 0 ? (
-                <div className="text-center py-20 text-gray-400">
-                  <p className="text-lg">👈 请从左侧选择题目</p>
-                  <p className="text-sm mt-2">筛选后勾选题目即可预览试卷</p>
+              {/* Two-column layout */}
+              <div className="flex gap-6">
+                {/* Left column */}
+                <div className="flex-1 min-w-0">
+                  {renderQuestionList(leftCol, previewMode, numberingMode)}
                 </div>
-              ) : (
-                <div className="space-y-6">
-                  {numberingMode === 'nested'
-                    ? renderNestedQuestions(numbered, previewMode)
-                    : renderFlatQuestions(numbered, previewMode)
-                  }
+                {/* Right column */}
+                <div className="flex-1 min-w-0">
+                  {renderQuestionList(rightCol, previewMode, numberingMode)}
                 </div>
-              )}
+              </div>
 
-              {/* Teacher version separator */}
+              {/* Teacher answers */}
               {previewMode === 'teacher' && questions.length > 0 && (
-                <div className="mt-12 pt-4 border-t-2 border-dashed border-red-300">
-                  <h2 className="text-xl font-bold text-red-700 mb-6 text-center">
-                    ———— 参考答案 ————
-                  </h2>
-                  {numberingMode === 'nested'
-                    ? renderNestedAnswers(numbered)
-                    : renderFlatAnswers(numbered)
-                  }
+                <div className="mt-8 pt-4 border-t-2 border-dashed border-red-300 clear-both">
+                  <h2 className="text-lg font-bold text-red-700 mb-4 text-center">参考答案</h2>
+                  <div className="columns-2 gap-6">
+                    {numbered.map((item, idx) => (
+                      <div key={idx} className="mb-2 break-inside-avoid">
+                        {renderAnswerItem(item, idx)}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -122,18 +113,13 @@ export default function PaperPreview({
     )
   }
 
-  // ── A4 layout: default ──
+  // ── A4 layout ──
   return (
-    <div
-      className="bg-white rounded-xl border border-border shadow-sm overflow-y-auto h-full"
-      data-paper-container
-    >
+    <div className="bg-white rounded-xl border border-border shadow-sm overflow-y-auto h-full" data-paper-container>
       <div className={`mx-auto ${pageClass} p-8`}>
-        {/* Paper Header */}
-        <div className="text-center mb-8 border-b-2 border-gray-800 pb-4">
-          <h1 className="text-2xl font-bold text-gray-900 font-heading tracking-wider">
-            {paperTitle || '数学试卷'}
-          </h1>
+        {/* Header */}
+        <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
+          <h1 className="text-2xl font-bold text-gray-900 font-heading tracking-wider">{paperTitle || '数学试卷'}</h1>
           <div className="flex justify-between mt-3 text-sm text-gray-600">
             <span>姓名：_______________</span>
             <span>班级：_______________</span>
@@ -144,33 +130,31 @@ export default function PaperPreview({
         {/* Questions */}
         {numbered.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
-            <p className="text-lg">👈 请从左侧选择题目</p>
-            <p className="text-sm mt-2">筛选后勾选题目即可预览试卷</p>
+            <p className="text-lg">请从左侧选择题目</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {numberingMode === 'nested'
-              ? renderNestedQuestions(numbered, previewMode)
-              : renderFlatQuestions(numbered, previewMode)
-            }
-          </div>
+          renderQuestionList(numbered, previewMode, numberingMode)
         )}
 
-        {/* Teacher version separator */}
+        {/* Teacher answers */}
         {previewMode === 'teacher' && questions.length > 0 && (
           <div className="mt-12 pt-4 border-t-2 border-dashed border-red-300">
-            <h2 className="text-xl font-bold text-red-700 mb-6 text-center">
-              ———— 参考答案 ————
-            </h2>
-            {numberingMode === 'nested'
-              ? renderNestedAnswers(numbered)
-              : renderFlatAnswers(numbered)
-            }
+            <h2 className="text-xl font-bold text-red-700 mb-6 text-center">参考答案</h2>
+            {renderAnswerList(numbered, numberingMode)}
           </div>
         )}
       </div>
     </div>
   )
+}
+
+// ─── Question list rendering ─────────────────────────────────
+
+function renderQuestionList(numbered, previewMode, numberingMode) {
+  if (numberingMode === 'nested') {
+    return renderNestedQuestions(numbered, previewMode)
+  }
+  return renderFlatQuestions(numbered, previewMode)
 }
 
 function renderNestedQuestions(numbered, previewMode) {
@@ -181,77 +165,56 @@ function renderNestedQuestions(numbered, previewMode) {
     if (item.groupLabel) {
       currentGroupLabel = item.groupLabel
       elements.push(
-        <div key={`group-${idx}`} className="mt-4 first:mt-0">
-          <h3 className="text-base font-bold text-gray-800 border-b border-gray-200 pb-1 mb-3">
+        <div key={`group-${idx}`} className="mt-3 first:mt-0">
+          <h3 className="text-sm font-bold text-gray-800 border-b border-gray-200 pb-1 mb-2">
             {currentGroupLabel}
           </h3>
-          {renderQuestionItem(item, previewMode, idx)}
+          <QuestionItem item={item} previewMode={previewMode} />
         </div>
       )
     } else {
-      elements.push(
-        <div key={`q-${idx}`}>
-          {renderQuestionItem(item, previewMode, idx)}
-        </div>
-      )
+      elements.push(<QuestionItem key={`q-${idx}`} item={item} previewMode={previewMode} />)
     }
   })
-
   return elements
 }
 
 function renderFlatQuestions(numbered, previewMode) {
   return numbered.map((item, idx) => (
-    <div key={`q-${idx}`}>
-      {renderQuestionItem(item, previewMode, idx)}
-    </div>
+    <QuestionItem key={`q-${idx}`} item={item} previewMode={previewMode} />
   ))
-}
-
-function renderQuestionItem(item, previewMode, idx) {
-  return <QuestionItem key={idx} item={item} previewMode={previewMode} />
 }
 
 function QuestionItem({ item, previewMode }) {
   const q = item.question
   const pos = q.imagePosition || 'right'
+  const needsSpace = NEEDS_SPACE_TYPES.includes(q.questionType)
 
   return (
-    <div className="question-block mb-4">
-      <div className="flex gap-2">
-        <span className="question-number font-bold text-gray-800 flex-shrink-0">
-          {item.number}
-        </span>
+    <div className="question-block mb-3">
+      <div className="flex gap-1.5">
+        <span className="question-number font-bold text-gray-800 flex-shrink-0 text-sm">{item.number}</span>
         <div className="flex-1">
           {q.imageUrl && pos === 'below' ? (
             <div>
-              <div className="text-gray-800 leading-relaxed">
+              <div className="text-gray-800 leading-relaxed text-sm">
                 <MixedContent content={q.content || ''} answer={q.answer} />
               </div>
-              <img src={q.imageUrl} alt="题目图片"
-                className="question-image w-full max-h-60 object-contain mt-2 rounded border border-gray-200" />
-            </div>
-          ) : q.imageUrl && pos === 'bottom-right' ? (
-            <div>
-              <div className="text-gray-800 leading-relaxed">
-                <MixedContent content={q.content || ''} answer={q.answer} />
-              </div>
-              <img src={q.imageUrl} alt="题目图片"
-                className="question-image w-2/3 max-h-48 object-contain mt-2 ml-auto rounded border border-gray-200" />
+              <img src={q.imageUrl} alt="题目图片" className="w-full max-h-48 object-contain mt-1 rounded border border-gray-200" />
             </div>
           ) : (
-            <div className="flex gap-3 items-start">
-              <div className="flex-1 min-w-0 text-gray-800 leading-relaxed">
+            <div className="flex gap-2 items-start">
+              <div className="flex-1 min-w-0 text-gray-800 leading-relaxed text-sm">
                 <MixedContent content={q.content || ''} answer={q.answer} />
               </div>
-              {q.imageUrl && (
-                <img src={q.imageUrl} alt="题目图片"
-                  className="question-image w-1/3 max-h-40 object-contain rounded border border-gray-200 flex-shrink-0" />
+              {q.imageUrl && pos !== 'below' && (
+                <img src={q.imageUrl} alt="题目图片" className="w-1/4 max-h-32 object-contain rounded border border-gray-200 flex-shrink-0" />
               )}
             </div>
           )}
-          {previewMode === 'student' && (
-            <div className="mt-2 border-b border-dashed border-gray-300 h-16" />
+          {/* Answer space: only for problem-solving type, student version */}
+          {previewMode === 'student' && needsSpace && (
+            <div className="mt-2 border-b border-dashed border-gray-300 h-20" />
           )}
         </div>
       </div>
@@ -259,65 +222,49 @@ function QuestionItem({ item, previewMode }) {
   )
 }
 
+// ─── Answer list rendering ───────────────────────────────────
+
+function renderAnswerList(numbered, numberingMode) {
+  if (numberingMode === 'nested') return renderNestedAnswers(numbered)
+  return renderFlatAnswers(numbered)
+}
+
 function renderNestedAnswers(numbered) {
   const elements = []
   let currentGroupLabel = null
-
   numbered.forEach((item, idx) => {
     if (item.groupLabel) {
       currentGroupLabel = item.groupLabel
       elements.push(
-        <div key={`ans-group-${idx}`} className="mt-3 first:mt-0">
-          <h4 className="text-sm font-bold text-gray-600 mb-2">
-            {currentGroupLabel}
-          </h4>
+        <div key={`ag-${idx}`} className="mt-2 first:mt-0">
+          <h4 className="text-xs font-bold text-gray-600 mb-1">{currentGroupLabel}</h4>
           {renderAnswerItem(item, idx)}
         </div>
       )
     } else {
-      elements.push(
-        <div key={`ans-${idx}`}>
-          {renderAnswerItem(item, idx)}
-        </div>
-      )
+      elements.push(renderAnswerItem(item, idx))
     }
   })
-
   return elements
 }
 
 function renderFlatAnswers(numbered) {
-  return numbered.map((item, idx) => (
-    <div key={`ans-${idx}`}>
-      {renderAnswerItem(item, idx)}
-    </div>
-  ))
+  return numbered.map((item, idx) => renderAnswerItem(item, idx))
 }
 
 function renderAnswerItem(item, idx) {
   const q = item.question
-  const hasAnswer = q.answer && q.answer.trim()
-  const hasSolution = q.solution && q.solution.trim()
-
   return (
-    <div className="answer-block mb-3 flex gap-2 text-sm">
-      <span className="font-bold text-gray-700 flex-shrink-0">
-        {item.number}
-      </span>
+    <div key={idx} className="answer-block mb-1.5 flex gap-1.5 text-xs">
+      <span className="font-bold text-gray-700 flex-shrink-0">{item.number}</span>
       <div className="flex-1">
-        {hasAnswer ? (
-          <div className="text-blue-700">
-            <span className="font-medium">答案：</span>
-            <MixedContent content={q.answer} />
-          </div>
+        {q.answer ? (
+          <span className="text-blue-700"><span className="font-medium">答：</span><MixedContent content={q.answer} /></span>
         ) : (
-          <span className="text-gray-400 italic">（暂无答案）</span>
+          <span className="text-gray-400 italic">（暂无）</span>
         )}
-        {hasSolution && (
-          <div className="text-gray-600 mt-1 text-xs">
-            <span className="font-medium">解析：</span>
-            <MixedContent content={q.solution} />
-          </div>
+        {q.solution && (
+          <span className="text-gray-500 ml-2"><span className="font-medium">解：</span><MixedContent content={q.solution} /></span>
         )}
       </div>
     </div>

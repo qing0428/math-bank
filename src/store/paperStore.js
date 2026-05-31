@@ -35,6 +35,7 @@ function getDefaultConfig() {
     studentId: true,
     examTime: '90',
     totalScore: '120',
+    showSealLine: true,
   }
 }
 
@@ -88,6 +89,7 @@ export async function exportToPDF(element, filename, pageSize = 'A4') {
   const pdfHeight = size.heightMm
   const imgWidth = pdfWidth
   const imgHeight = (canvas.height * pdfWidth) / canvas.width
+  const overlap = 15 // mm overlap between pages to avoid splitting text
 
   let heightLeft = imgHeight
   let position = 0
@@ -96,12 +98,12 @@ export async function exportToPDF(element, filename, pageSize = 'A4') {
   pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight)
   heightLeft -= pdfHeight
 
-  // Additional pages
+  // Additional pages — with overlap to reduce visible text splits
   while (heightLeft > 0) {
-    position -= pdfHeight
+    position -= (pdfHeight - overlap)
     pdf.addPage()
     pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pdfHeight
+    heightLeft -= (pdfHeight - overlap)
   }
 
   pdf.save(`${filename}.pdf`)
@@ -273,9 +275,15 @@ export async function exportToWord(numbered, numberingMode, paperTitle, version,
       font: 'SimSun',
     }))
 
-    // Question content (plain text - LaTeX markers kept as-is)
+    // Question content — strip LaTeX for Word
+    const plainContent = (q.content || '')
+      .replace(/\$\$[\s\S]*?\$\$/g, m => m.replace(/\$\$/g, '').replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '$1/$2').replace(/\\sqrt\{([^}]*)\}/g, '√($1)').replace(/\\[a-zA-Z]+\{?[^}]*\}?/g, ''))
+      .replace(/\$[^$]*\$/g, m => m.replace(/\$/g, '').replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, '$1/$2').replace(/\\sqrt\{([^}]*)\}/g, '√($1)').replace(/\\[a-zA-Z]+\{?[^}]*\}?/g, ''))
+      .replace(/[{}\\]/g, '')
+      .trim()
+
     runs.push(new TextRun({
-      text: q.content || '',
+      text: plainContent,
       size: 24,
       font: 'SimSun',
     }))
@@ -311,8 +319,9 @@ export async function exportToWord(numbered, numberingMode, paperTitle, version,
       }
     }
 
-    // Answer line for student version
-    if (!isTeacher) {
+    // Answer line for student version — only for problem-solving types
+    const needsSpace = ['解决问题', '解答题', '证明题', '画图题'].includes(q.questionType)
+    if (!isTeacher && needsSpace) {
       questionChildren.push(
         new Paragraph({
           spacing: { after: 200 },

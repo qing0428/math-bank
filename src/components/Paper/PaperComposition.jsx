@@ -17,13 +17,14 @@ export default function PaperComposition({ questions }) {
   const [studentId, setStudentId] = useState(savedConfig.studentId ?? true)
   const [examTime, setExamTime] = useState(savedConfig.examTime || '90')
   const [totalScore, setTotalScore] = useState(savedConfig.totalScore || '120')
+  const [showSealLine, setShowSealLine] = useState(savedConfig.showSealLine ?? true)
 
   const previewRef = useRef(null)
 
   // Persist config on change
   useEffect(() => {
-    savePaperConfig({ numberingMode, pageSize, selectedIds, paperTitle, schoolName, studentId, examTime, totalScore })
-  }, [numberingMode, pageSize, selectedIds, paperTitle, schoolName, studentId, examTime, totalScore])
+    savePaperConfig({ numberingMode, pageSize, selectedIds, paperTitle, schoolName, studentId, examTime, totalScore, showSealLine })
+  }, [numberingMode, pageSize, selectedIds, paperTitle, schoolName, studentId, examTime, totalScore, showSealLine])
 
   const handleToggle = useCallback((id) => {
     setSelectedIds(prev =>
@@ -86,6 +87,8 @@ export default function PaperComposition({ questions }) {
         onExamTimeChange={setExamTime}
         totalScore={totalScore}
         onTotalScoreChange={setTotalScore}
+        showSealLine={showSealLine}
+        onShowSealLineChange={setShowSealLine}
         onExport={handleExport}
         selectedCount={selectedQuestions.length}
       />
@@ -114,6 +117,7 @@ export default function PaperComposition({ questions }) {
             studentId={studentId}
             examTime={examTime}
             totalScore={totalScore}
+            showSealLine={showSealLine}
           />
         </div>
       </div>

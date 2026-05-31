@@ -17,6 +17,8 @@ export default function PaperSettings({
   onExamTimeChange,
   totalScore,
   onTotalScoreChange,
+  showSealLine,
+  onShowSealLineChange,
   onExport,
   selectedCount,
 }) {
@@ -94,6 +96,19 @@ export default function PaperSettings({
                   }`}
               >
                 {studentId ? '显示' : '隐藏'}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">密封线</label>
+              <button
+                onClick={() => onShowSealLineChange(!showSealLine)}
+                className={`px-3 py-1.5 text-sm rounded-lg border cursor-pointer transition-colors
+                  ${showSealLine
+                    ? 'bg-primary-500 text-white border-primary-500'
+                    : 'bg-white text-gray-600 border-border hover:bg-gray-50'
+                  }`}
+              >
+                {showSealLine ? '显示' : '隐藏'}
               </button>
             </div>
           </>

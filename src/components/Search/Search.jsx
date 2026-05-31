@@ -42,9 +42,8 @@ export default function Search({ questions, setQuestions }) {
     }
   }
 
-  const handleEdit = (q) => {
-    // For now, just alert. In full implementation, navigate to entry page with data
-    alert('编辑功能：将在下一版本支持从查找页面直接编辑')
+  const handleEdit = (updatedQ) => {
+    setQuestions(questions.map(q => q.id === updatedQ.id ? { ...updatedQ, updatedAt: Date.now() } : q))
   }
 
   return (

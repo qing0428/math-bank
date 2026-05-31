@@ -44,6 +44,7 @@ function QuestionContent({ q }) {
 
 export default function SearchResults({ results, onEdit, onDelete }) {
   const [detailQuestion, setDetailQuestion] = useState(null)
+  const [editingQuestion, setEditingQuestion] = useState(null)
 
   if (results.length === 0) {
     return (
@@ -89,7 +90,7 @@ export default function SearchResults({ results, onEdit, onDelete }) {
             {/* Actions */}
             <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
               <button
-                onClick={() => onEdit?.(q)}
+                onClick={() => setEditingQuestion({ ...q })}
                 className="px-3 py-1.5 rounded-lg bg-primary-50 text-primary-600 text-xs font-medium hover:bg-primary-100 transition-colors cursor-pointer"
               >
                 编辑
@@ -206,11 +207,51 @@ export default function SearchResults({ results, onEdit, onDelete }) {
             {/* Footer */}
             <div className="px-5 py-3 border-t border-border flex justify-end gap-2 flex-shrink-0">
               <button
-                onClick={() => { setDetailQuestion(null); onEdit?.(detailQuestion) }}
+                onClick={() => { setDetailQuestion(null); setEditingQuestion({ ...detailQuestion }) }}
                 className="px-4 py-2 rounded-lg bg-primary-500 text-white text-sm font-medium hover:bg-primary-600 cursor-pointer"
               >
                 编辑
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingQuestion && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setEditingQuestion(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
+              <h3 className="text-sm font-semibold text-text">编辑题目</h3>
+              <button onClick={() => setEditingQuestion(null)} className="text-gray-400 hover:text-gray-600 text-lg cursor-pointer">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">题目内容</label>
+                <textarea value={editingQuestion.content || ''} onChange={e => setEditingQuestion(p => ({ ...p, content: e.target.value }))} rows={4} className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">答案</label>
+                <textarea value={editingQuestion.answer || ''} onChange={e => setEditingQuestion(p => ({ ...p, answer: e.target.value }))} rows={2} className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">解析</label>
+                <textarea value={editingQuestion.solution || ''} onChange={e => setEditingQuestion(p => ({ ...p, solution: e.target.value }))} rows={4} className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">年级</label>
+                  <input value={editingQuestion.grade || ''} onChange={e => setEditingQuestion(p => ({ ...p, grade: e.target.value }))} className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">备注</label>
+                  <input value={editingQuestion.notes || ''} onChange={e => setEditingQuestion(p => ({ ...p, notes: e.target.value }))} className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" />
+                </div>
+              </div>
+            </div>
+            <div className="px-5 py-3 border-t border-border flex justify-end gap-2 flex-shrink-0">
+              <button onClick={() => setEditingQuestion(null)} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 cursor-pointer">取消</button>
+              <button onClick={() => { onEdit?.(editingQuestion); setEditingQuestion(null) }} className="px-4 py-2 rounded-lg bg-primary-500 text-white text-sm font-medium hover:bg-primary-600 cursor-pointer">保存</button>
             </div>
           </div>
         </div>
