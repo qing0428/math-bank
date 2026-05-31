@@ -353,6 +353,15 @@ function renderSegment(seg, index, answer) {
   return null
 }
 
+function renderWithNewlines(text) {
+  if (!text) return text
+  const parts = text.split('\n')
+  if (parts.length === 1) return text
+  return parts.map((part, i) => (
+    <span key={i}>{part}{i < parts.length - 1 && <br />}</span>
+  ))
+}
+
 export default function MixedContent({ content, answer, className = '' }) {
   if (!content || !content.trim()) {
     return <span className="text-gray-400 italic text-sm">暂无内容</span>
@@ -363,7 +372,7 @@ export default function MixedContent({ content, answer, className = '' }) {
   if (!content.includes('$') && !hasTabular) {
     const withOptions = formatChoiceOptions(content)
     const processed = expandBlanks(withOptions, answer)
-    return <span className={className}>{processed}</span>
+    return <span className={className}>{renderWithNewlines(processed)}</span>
   }
 
   try {
@@ -371,7 +380,7 @@ export default function MixedContent({ content, answer, className = '' }) {
     if (segments.length === 0) {
       const withOptions = formatChoiceOptions(content)
       const processed = expandBlanks(withOptions, answer)
-      return <span className={className}>{processed}</span>
+      return <span className={className}>{renderWithNewlines(processed)}</span>
     }
     return (
       <span className={className}>
