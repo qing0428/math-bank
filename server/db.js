@@ -10,20 +10,21 @@ db.pragma('journal_mode = WAL')
 // Schema
 db.exec(`
   CREATE TABLE IF NOT EXISTS questions (
-    id            TEXT PRIMARY KEY,
-    content       TEXT NOT NULL DEFAULT '',
-    answer        TEXT NOT NULL DEFAULT '',
-    solution      TEXT NOT NULL DEFAULT '',
-    grade         TEXT NOT NULL DEFAULT '',
-    topic         TEXT NOT NULL DEFAULT '',
-    question_type TEXT NOT NULL DEFAULT '',
-    difficulty    INTEGER NOT NULL DEFAULT 3,
-    tags          TEXT NOT NULL DEFAULT '[]',
-    notes         TEXT NOT NULL DEFAULT '',
-    exam_name     TEXT NOT NULL DEFAULT '',
-    image_url     TEXT NOT NULL DEFAULT '',
-    created_at    INTEGER NOT NULL,
-    updated_at    INTEGER NOT NULL
+    id              TEXT PRIMARY KEY,
+    content         TEXT NOT NULL DEFAULT '',
+    answer          TEXT NOT NULL DEFAULT '',
+    solution        TEXT NOT NULL DEFAULT '',
+    grade           TEXT NOT NULL DEFAULT '',
+    topic           TEXT NOT NULL DEFAULT '',
+    question_type   TEXT NOT NULL DEFAULT '',
+    difficulty      INTEGER NOT NULL DEFAULT 3,
+    tags            TEXT NOT NULL DEFAULT '[]',
+    notes           TEXT NOT NULL DEFAULT '',
+    exam_name       TEXT NOT NULL DEFAULT '',
+    image_url       TEXT NOT NULL DEFAULT '',
+    image_position  TEXT NOT NULL DEFAULT 'right',
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL
   );
 
   CREATE INDEX IF NOT EXISTS idx_questions_grade ON questions(grade);
@@ -31,6 +32,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_questions_type ON questions(question_type);
   CREATE INDEX IF NOT EXISTS idx_questions_created ON questions(created_at);
 `)
+
+// Migration: add image_position column if missing (for existing databases)
+try { db.exec(`ALTER TABLE questions ADD COLUMN image_position TEXT NOT NULL DEFAULT 'right'`) } catch { /* column exists */ }
 
 // Field mapping: camelCase <-> snake_case
 function toDb(q) {
@@ -47,6 +51,7 @@ function toDb(q) {
     notes: q.notes || '',
     exam_name: q.examName || '',
     image_url: q.imageUrl || '',
+    image_position: q.imagePosition || 'right',
     created_at: q.createdAt,
     updated_at: q.updatedAt,
   }
@@ -66,6 +71,7 @@ function fromDb(row) {
     notes: row.notes,
     examName: row.exam_name,
     imageUrl: row.image_url,
+    imagePosition: row.image_position || 'right',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -78,9 +84,9 @@ const stmts = {
   upsert: db.prepare(`
     INSERT OR REPLACE INTO questions
       (id, content, answer, solution, grade, topic, question_type, difficulty,
-       tags, notes, exam_name, image_url, created_at, updated_at)
+       tags, notes, exam_name, image_url, image_position, created_at, updated_at)
     VALUES (@id, @content, @answer, @solution, @grade, @topic, @question_type,
-       @difficulty, @tags, @notes, @exam_name, @image_url, @created_at, @updated_at)
+       @difficulty, @tags, @notes, @exam_name, @image_url, @image_position, @created_at, @updated_at)
   `),
   delete: db.prepare('DELETE FROM questions WHERE id = ?'),
   count: db.prepare('SELECT COUNT(*) as count FROM questions'),

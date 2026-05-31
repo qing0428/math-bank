@@ -48,6 +48,7 @@ export function createQuestion(data = {}) {
     notes: data.notes || '',
     examName: data.examName || '',
     imageUrl: data.imageUrl || '',
+    imagePosition: data.imagePosition || 'right', // 'right' | 'below' | 'bottom-right'
     createdAt: data.createdAt || now,
     updatedAt: data.updatedAt || now,
   }

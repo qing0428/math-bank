@@ -130,13 +130,17 @@ function App() {
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
-      <main className="flex-1 overflow-y-auto bg-bg">
-        <PageComponent
-          questions={questions}
-          setQuestions={saveQuestions}
-          llmConfig={llmConfig}
-          onConfigChange={handleConfigChange}
-        />
+      <main className="flex-1 overflow-y-auto bg-bg relative">
+        {Object.entries(pages).map(([key, Comp]) => (
+          <div key={key} style={{ display: key === currentPage ? 'block' : 'none' }}>
+            <Comp
+              questions={questions}
+              setQuestions={saveQuestions}
+              llmConfig={llmConfig}
+              onConfigChange={handleConfigChange}
+            />
+          </div>
+        ))}
       </main>
     </div>
   )

@@ -39,6 +39,7 @@ router.post('/questions', (req, res) => {
     question_type: q.questionType || '', difficulty: q.difficulty ?? 3,
     tags: JSON.stringify(q.tags || []), notes: q.notes || '',
     exam_name: q.examName || '', image_url: q.imageUrl || '',
+    image_position: q.imagePosition || 'right',
     created_at: q.createdAt || Date.now(), updated_at: q.updatedAt || Date.now(),
   })
   res.json({ question: q })
@@ -55,6 +56,7 @@ router.put('/questions/:id', (req, res) => {
     question_type: q.questionType || '', difficulty: q.difficulty ?? 3,
     tags: JSON.stringify(q.tags || []), notes: q.notes || '',
     exam_name: q.examName || '', image_url: q.imageUrl || '',
+    image_position: q.imagePosition || 'right',
     created_at: q.createdAt || now, updated_at: now,
   })
   res.json({ question: { ...q, id: req.params.id, updatedAt: now } })

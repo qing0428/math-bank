@@ -47,10 +47,11 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
   const [batchTagging, setBatchTagging] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState('')
-  const [autoGenerate, setAutoGenerate] = useState(false)
-  const [fastMode, setFastMode] = useState(false)
+  const [autoGenerate, setAutoGenerate] = useState(true)
+  const [fastMode, setFastMode] = useState(true)
   const [showCropper, setShowCropper] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
+  const [editingSolution, setEditingSolution] = useState(false)
 
   const textConfigured = llmConfig?.text?.connected && llmConfig?.text?.model
 
@@ -142,13 +143,15 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
     setGenerating(true)
     setGenerateError('')
     try {
-      const solution = await generateSolution(
+      let solution = await generateSolution(
         question.content,
         question.answer,
         llmConfig.text,
         fastMode,
         question.grade
       )
+      // Strip \boxed{...} artifacts from solution
+      solution = solution.replace(/\\boxed\{([^}]*)\}/g, '$1')
       update('solution', solution)
     } catch (err) {
       setGenerateError(err.message || '生成失败')
@@ -398,6 +401,26 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
             />
           </div>
           <p className="text-xs text-blue-400 mt-1 text-center">点击图片裁剪</p>
+          {/* Image position selector */}
+          <div className="flex items-center gap-1 mt-2">
+            <span className="text-xs text-gray-400 mr-1">位置：</span>
+            {[
+              { value: 'right', label: '→ 右侧' },
+              { value: 'below', label: '↓ 下方' },
+              { value: 'bottom-right', label: '↘ 右下' },
+            ].map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => update('imagePosition', opt.value)}
+                className={`px-2 py-0.5 text-xs rounded cursor-pointer transition-colors
+                  ${(question.imagePosition || 'right') === opt.value
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-white text-gray-500 border border-gray-200 hover:border-blue-300'}`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       ) : batchImages.length > 0 ? (
         <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
@@ -508,13 +531,30 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
         </div>
       )}
 
-      {/* Solution Preview (inline) */}
+      {/* Solution Preview / Edit */}
       {question.solution && (
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">题目解析</label>
-          <div className="bg-gray-50 rounded-lg border border-border p-3 max-h-40 overflow-y-auto text-xs text-gray-700">
-            <MixedContent content={question.solution} />
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-xs font-medium text-gray-500">题目解析</label>
+            <button
+              onClick={() => setEditingSolution(!editingSolution)}
+              className="text-xs text-primary-500 hover:text-primary-700 cursor-pointer"
+            >
+              {editingSolution ? '👁️ 预览' : '✏️ 编辑'}
+            </button>
           </div>
+          {editingSolution ? (
+            <textarea
+              value={question.solution}
+              onChange={(e) => update('solution', e.target.value)}
+              rows={6}
+              className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500 resize-y"
+            />
+          ) : (
+            <div className="bg-gray-50 rounded-lg border border-border p-3 max-h-40 overflow-y-auto text-xs text-gray-700">
+              <MixedContent content={question.solution} />
+            </div>
+          )}
         </div>
       )}
     </div>
