@@ -3,27 +3,14 @@ import { useState } from 'react'
 export default function PaperSettings({
   numberingMode,
   onNumberingModeChange,
-  pageSize,
-  onPageSizeChange,
   previewMode,
   onPreviewModeChange,
   paperTitle,
   onPaperTitleChange,
-  schoolName,
-  onSchoolNameChange,
-  studentId,
-  onStudentIdChange,
-  examTime,
-  onExamTimeChange,
-  totalScore,
-  onTotalScoreChange,
-  showSealLine,
-  onShowSealLineChange,
   onExport,
   selectedCount,
 }) {
   const [exporting, setExporting] = useState(false)
-  const isA3 = pageSize === 'A3'
 
   const handleExport = async (format, version) => {
     if (selectedCount === 0) return
@@ -50,70 +37,6 @@ export default function PaperSettings({
           />
         </div>
 
-        {/* A3-only fields */}
-        {isA3 && (
-          <>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">学校名称</label>
-              <input
-                type="text"
-                value={schoolName}
-                onChange={(e) => onSchoolNameChange(e.target.value)}
-                placeholder="如：南宁市第十七中学"
-                className="rounded-lg border border-border px-3 py-1.5 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-primary-300"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">考试时间</label>
-              <input
-                type="text"
-                value={examTime}
-                onChange={(e) => onExamTimeChange(e.target.value)}
-                placeholder="90"
-                className="rounded-lg border border-border px-3 py-1.5 text-sm w-16 focus:outline-none focus:ring-2 focus:ring-primary-300"
-              />
-              <span className="text-xs text-gray-400">分钟</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">满分</label>
-              <input
-                type="text"
-                value={totalScore}
-                onChange={(e) => onTotalScoreChange(e.target.value)}
-                placeholder="120"
-                className="rounded-lg border border-border px-3 py-1.5 text-sm w-16 focus:outline-none focus:ring-2 focus:ring-primary-300"
-              />
-              <span className="text-xs text-gray-400">分</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">学号栏</label>
-              <button
-                onClick={() => onStudentIdChange(!studentId)}
-                className={`px-3 py-1.5 text-sm rounded-lg border cursor-pointer transition-colors
-                  ${studentId
-                    ? 'bg-primary-500 text-white border-primary-500'
-                    : 'bg-white text-gray-600 border-border hover:bg-gray-50'
-                  }`}
-              >
-                {studentId ? '显示' : '隐藏'}
-              </button>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">密封线</label>
-              <button
-                onClick={() => onShowSealLineChange(!showSealLine)}
-                className={`px-3 py-1.5 text-sm rounded-lg border cursor-pointer transition-colors
-                  ${showSealLine
-                    ? 'bg-primary-500 text-white border-primary-500'
-                    : 'bg-white text-gray-600 border-border hover:bg-gray-50'
-                  }`}
-              >
-                {showSealLine ? '显示' : '隐藏'}
-              </button>
-            </div>
-          </>
-        )}
-
         {/* Numbering mode */}
         <div className="flex items-center gap-2">
           <label className="text-xs font-medium text-gray-500 whitespace-nowrap">编号方式</label>
@@ -125,26 +48,6 @@ export default function PaperSettings({
             <option value="nested">一、1.（1）① 嵌套</option>
             <option value="flat">1.2.3. 平铺</option>
           </select>
-        </div>
-
-        {/* Page size */}
-        <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-gray-500 whitespace-nowrap">纸面大小</label>
-          <div className="flex rounded-lg border border-border overflow-hidden">
-            {['A4', 'A3'].map(size => (
-              <button
-                key={size}
-                onClick={() => onPageSizeChange(size)}
-                className={`px-3 py-1.5 text-sm cursor-pointer transition-colors
-                  ${pageSize === size
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                  }`}
-              >
-                {size}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Preview mode */}
@@ -170,7 +73,6 @@ export default function PaperSettings({
           </div>
         </div>
 
-        {/* Spacer */}
         <div className="flex-1" />
 
         {/* Export buttons */}
@@ -179,8 +81,7 @@ export default function PaperSettings({
             onClick={() => handleExport('word', 'student')}
             disabled={selectedCount === 0 || exporting}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-blue-500 text-white
-              hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
-              transition-colors"
+              hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
             title="导出学生版 Word"
           >
             📄 Word（学生）
@@ -189,8 +90,7 @@ export default function PaperSettings({
             onClick={() => handleExport('word', 'teacher')}
             disabled={selectedCount === 0 || exporting}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-blue-600 text-white
-              hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
-              transition-colors"
+              hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
             title="导出教师版 Word"
           >
             📄 Word（教师）
@@ -199,8 +99,7 @@ export default function PaperSettings({
             onClick={() => handleExport('pdf', 'student')}
             disabled={selectedCount === 0 || exporting}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-red-500 text-white
-              hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
-              transition-colors"
+              hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
             title="导出学生版 PDF"
           >
             📕 PDF（学生）
@@ -209,8 +108,7 @@ export default function PaperSettings({
             onClick={() => handleExport('pdf', 'teacher')}
             disabled={selectedCount === 0 || exporting}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-red-600 text-white
-              hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer
-              transition-colors"
+              hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
             title="导出教师版 PDF"
           >
             📕 PDF（教师）
