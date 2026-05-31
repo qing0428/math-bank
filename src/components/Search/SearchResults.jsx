@@ -1,7 +1,46 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import 'katex/dist/katex.min.css'
 import MixedContent from '../common/MixedContent'
 import StarRating from '../QuestionEntry/StarRating'
+
+function useIsTallImage(src) {
+  const [tall, setTall] = useState(false)
+  useEffect(() => {
+    if (!src) return
+    const img = new Image()
+    img.onload = () => setTall(img.naturalHeight > img.naturalWidth * 1.3)
+    img.src = src
+  }, [src])
+  return tall
+}
+
+function QuestionContent({ q }) {
+  const tall = useIsTallImage(q.imageUrl)
+
+  if (!q.imageUrl) {
+    return <MixedContent content={q.content} />
+  }
+
+  if (tall) {
+    return (
+      <div>
+        <MixedContent content={q.content} />
+        <img src={q.imageUrl} alt="题目图片"
+          className="w-full max-h-40 rounded border border-border object-contain mt-2" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex gap-3 items-start">
+      <img src={q.imageUrl} alt="题目图片"
+        className="max-h-24 rounded border border-border object-contain flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <MixedContent content={q.content} />
+      </div>
+    </div>
+  )
+}
 
 export default function SearchResults({ results, onEdit, onDelete }) {
   const [detailQuestion, setDetailQuestion] = useState(null)
@@ -30,18 +69,7 @@ export default function SearchResults({ results, onEdit, onDelete }) {
             <div className="flex-1 min-w-0">
               <div className="mb-2">
                 {q.content ? (
-                  <div className="flex gap-3 items-start">
-                    {q.imageUrl && (
-                      <img
-                        src={q.imageUrl}
-                        alt="题目图片"
-                        className="max-h-24 rounded border border-border object-contain flex-shrink-0"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <MixedContent content={q.content} />
-                    </div>
-                  </div>
+                  <QuestionContent q={q} />
                 ) : (
                   <p className="text-gray-400 text-sm italic">无题目内容</p>
                 )}
