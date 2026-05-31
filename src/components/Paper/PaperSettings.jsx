@@ -9,10 +9,19 @@ export default function PaperSettings({
   onPreviewModeChange,
   paperTitle,
   onPaperTitleChange,
+  schoolName,
+  onSchoolNameChange,
+  studentId,
+  onStudentIdChange,
+  examTime,
+  onExamTimeChange,
+  totalScore,
+  onTotalScoreChange,
   onExport,
   selectedCount,
 }) {
   const [exporting, setExporting] = useState(false)
+  const isA3 = pageSize === 'A3'
 
   const handleExport = async (format, version) => {
     if (selectedCount === 0) return
@@ -38,6 +47,57 @@ export default function PaperSettings({
             className="rounded-lg border border-border px-3 py-1.5 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-primary-300"
           />
         </div>
+
+        {/* A3-only fields */}
+        {isA3 && (
+          <>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">学校名称</label>
+              <input
+                type="text"
+                value={schoolName}
+                onChange={(e) => onSchoolNameChange(e.target.value)}
+                placeholder="如：南宁市第十七中学"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm w-44 focus:outline-none focus:ring-2 focus:ring-primary-300"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">考试时间</label>
+              <input
+                type="text"
+                value={examTime}
+                onChange={(e) => onExamTimeChange(e.target.value)}
+                placeholder="90"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm w-16 focus:outline-none focus:ring-2 focus:ring-primary-300"
+              />
+              <span className="text-xs text-gray-400">分钟</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">满分</label>
+              <input
+                type="text"
+                value={totalScore}
+                onChange={(e) => onTotalScoreChange(e.target.value)}
+                placeholder="120"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm w-16 focus:outline-none focus:ring-2 focus:ring-primary-300"
+              />
+              <span className="text-xs text-gray-400">分</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500 whitespace-nowrap">学号栏</label>
+              <button
+                onClick={() => onStudentIdChange(!studentId)}
+                className={`px-3 py-1.5 text-sm rounded-lg border cursor-pointer transition-colors
+                  ${studentId
+                    ? 'bg-primary-500 text-white border-primary-500'
+                    : 'bg-white text-gray-600 border-border hover:bg-gray-50'
+                  }`}
+              >
+                {studentId ? '显示' : '隐藏'}
+              </button>
+            </div>
+          </>
+        )}
 
         {/* Numbering mode */}
         <div className="flex items-center gap-2">

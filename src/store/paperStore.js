@@ -31,6 +31,10 @@ function getDefaultConfig() {
     pageSize: 'A4',
     selectedIds: [],
     paperTitle: '数学试卷',
+    schoolName: '',
+    studentId: true,
+    examTime: '90',
+    totalScore: '120',
   }
 }
 
@@ -150,10 +154,12 @@ async function getImageDimensions(url) {
  * @param {'A4'|'A3'} pageSize - Page size
  * @param {string} filename - Output filename
  */
-export async function exportToWord(numbered, numberingMode, paperTitle, version, pageSize, filename) {
+export async function exportToWord(numbered, numberingMode, paperTitle, version, pageSize, filename, opts = {}) {
   const isTeacher = version === 'teacher'
   const isA3 = pageSize === 'A3'
   const size = PAGE_SIZES[pageSize] || PAGE_SIZES.A4
+
+  const { schoolName = '', studentId = true, examTime = '90', totalScore = '120' } = opts
 
   // Convert mm to twip: 1 mm = ~56.7 twip
   const pageWidthTwip = Math.round(size.widthMm * 56.7)
@@ -164,35 +170,65 @@ export async function exportToWord(numbered, numberingMode, paperTitle, version,
   // --- Questions section ---
   const questionChildren = []
 
-  // Paper title
-  questionChildren.push(
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 200 },
-      children: [
-        new TextRun({
-          text: paperTitle || '数学试卷',
-          bold: true,
-          size: 48, // 24pt
-          font: 'SimSun',
-        }),
-      ],
-    })
-  )
-
-  // Header info line — A3: no score; A4: include score
   if (isA3) {
+    // ── A3 header ──
+    // School name
+    if (schoolName) {
+      questionChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 100 },
+          children: [
+            new TextRun({ text: schoolName, bold: true, size: 32, font: 'SimSun' }),
+          ],
+        })
+      )
+    }
+
+    // Exam title
     questionChildren.push(
       new Paragraph({
-        spacing: { after: 400 },
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 200 },
         children: [
-          new TextRun({ text: '姓名：_______________', size: 22, font: 'SimSun' }),
+          new TextRun({
+            text: paperTitle || '数学试卷',
+            bold: true,
+            size: 44,
+            font: 'SimSun',
+          }),
+        ],
+      })
+    )
+
+    // Metadata: proposer + time + score
+    questionChildren.push(
+      new Paragraph({
+        spacing: { after: 300 },
+        children: [
+          new TextRun({ text: '命题人：____________', size: 22, font: 'SimSun' }),
           new TextRun({ text: '    ', size: 22 }),
-          new TextRun({ text: '班级：_______________', size: 22, font: 'SimSun' }),
+          new TextRun({ text: `考试时间：${examTime || '90'}分钟    满分：${totalScore || '120'}分`, size: 22, font: 'SimSun' }),
         ],
       })
     )
   } else {
+    // ── A4 header ──
+    questionChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 200 },
+        children: [
+          new TextRun({
+            text: paperTitle || '数学试卷',
+            bold: true,
+            size: 48,
+            font: 'SimSun',
+          }),
+        ],
+      })
+    )
+
     questionChildren.push(
       new Paragraph({
         spacing: { after: 400 },

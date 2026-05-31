@@ -13,13 +13,17 @@ export default function PaperComposition({ questions }) {
   const [pageSize, setPageSize] = useState(savedConfig.pageSize || 'A4')
   const [previewMode, setPreviewMode] = useState('student')
   const [paperTitle, setPaperTitle] = useState(savedConfig.paperTitle || '数学试卷')
+  const [schoolName, setSchoolName] = useState(savedConfig.schoolName || '')
+  const [studentId, setStudentId] = useState(savedConfig.studentId ?? true)
+  const [examTime, setExamTime] = useState(savedConfig.examTime || '90')
+  const [totalScore, setTotalScore] = useState(savedConfig.totalScore || '120')
 
   const previewRef = useRef(null)
 
   // Persist config on change
   useEffect(() => {
-    savePaperConfig({ numberingMode, pageSize, selectedIds, paperTitle })
-  }, [numberingMode, pageSize, selectedIds, paperTitle])
+    savePaperConfig({ numberingMode, pageSize, selectedIds, paperTitle, schoolName, studentId, examTime, totalScore })
+  }, [numberingMode, pageSize, selectedIds, paperTitle, schoolName, studentId, examTime, totalScore])
 
   const handleToggle = useCallback((id) => {
     setSelectedIds(prev =>
@@ -53,7 +57,7 @@ export default function PaperComposition({ questions }) {
     const filename = `${paperTitle}_${version === 'student' ? '学生版' : '教师版'}`
 
     if (format === 'word') {
-      await exportToWord(numbered, numberingMode, paperTitle, version, pageSize, filename)
+      await exportToWord(numbered, numberingMode, paperTitle, version, pageSize, filename, { schoolName, studentId, examTime, totalScore })
     } else if (format === 'pdf') {
       const container = document.querySelector('[data-paper-container]')
       if (container) {
@@ -74,6 +78,14 @@ export default function PaperComposition({ questions }) {
         onPreviewModeChange={setPreviewMode}
         paperTitle={paperTitle}
         onPaperTitleChange={setPaperTitle}
+        schoolName={schoolName}
+        onSchoolNameChange={setSchoolName}
+        studentId={studentId}
+        onStudentIdChange={setStudentId}
+        examTime={examTime}
+        onExamTimeChange={setExamTime}
+        totalScore={totalScore}
+        onTotalScoreChange={setTotalScore}
         onExport={handleExport}
         selectedCount={selectedQuestions.length}
       />
@@ -98,6 +110,10 @@ export default function PaperComposition({ questions }) {
             pageSize={pageSize}
             previewMode={previewMode}
             paperTitle={paperTitle}
+            schoolName={schoolName}
+            studentId={studentId}
+            examTime={examTime}
+            totalScore={totalScore}
           />
         </div>
       </div>

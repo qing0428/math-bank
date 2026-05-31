@@ -8,6 +8,10 @@ export default function PaperPreview({
   pageSize,
   previewMode,
   paperTitle,
+  schoolName = '',
+  studentId = true,
+  examTime = '90',
+  totalScore = '120',
 }) {
   const numbered = useMemo(() => {
     if (questions.length === 0) return []
@@ -15,14 +19,13 @@ export default function PaperPreview({
     return generateNestedNumbers(questions)
   }, [questions, numberingMode])
 
-  const totalScore = questions.length * 10 // 默认每题10分
   const isA3 = pageSize === 'A3'
 
   const pageClass = isA3
-    ? 'max-w-[1122px]' // A3 width at ~96dpi scaled
-    : 'max-w-[794px]'  // A4 width at ~96dpi
+    ? 'max-w-[1122px]'
+    : 'max-w-[794px]'
 
-  // ── A3 layout: vertical sidebar on the left ──
+  // ── A3 layout ──
   if (isA3) {
     return (
       <div
@@ -30,32 +33,59 @@ export default function PaperPreview({
         data-paper-container
       >
         <div className={`mx-auto ${pageClass} p-8`}>
-          <div className="flex">
-            {/* Left sidebar: name & class vertical, bottom-to-top */}
-            <div className="flex-shrink-0 w-16 flex flex-col items-center justify-end relative mr-4">
-              {/* Vertical divider line */}
-              <div className="absolute right-0 top-0 bottom-0 w-px bg-gray-800" />
-              {/* Name & Class text, rotated bottom-to-top */}
+          <div className="flex min-h-[600px]">
+            {/* ─── Left sidebar: seal line + student info ─── */}
+            <div className="flex-shrink-0 flex items-stretch">
+              {/* Student info fields */}
               <div
-                className="text-sm text-gray-600 whitespace-nowrap pb-4"
+                className="flex flex-col items-center justify-start pt-6 pb-8 px-2 gap-2"
                 style={{
                   writingMode: 'vertical-rl',
                   textOrientation: 'mixed',
-                  transform: 'rotate(180deg)',
                 }}
               >
-                <span className="mr-4">姓名：_______________</span>
-                <span>班级：_______________</span>
+                <span className="text-base font-bold tracking-[0.3em] text-gray-800 mb-4">
+                  密 封 线
+                </span>
+                <span className="text-sm text-gray-600 leading-loose">
+                  姓名：_______________
+                </span>
+                <span className="text-sm text-gray-600 leading-loose">
+                  班级：_______________
+                </span>
+                {studentId && (
+                  <span className="text-sm text-gray-600 leading-loose">
+                    学号：_______________
+                  </span>
+                )}
               </div>
+
+              {/* Vertical divider line */}
+              <div className="w-px bg-gray-800 mx-2 flex-shrink-0" />
             </div>
 
-            {/* Right: main content */}
-            <div className="flex-1 min-w-0">
-              {/* Title (centered, no score) */}
-              <div className="text-center mb-8 border-b-2 border-gray-800 pb-4">
-                <h1 className="text-2xl font-bold text-gray-900 font-heading tracking-wider">
+            {/* ─── Right: main content area ─── */}
+            <div className="flex-1 min-w-0 pl-4">
+              {/* School name */}
+              {schoolName && (
+                <div className="text-center mb-2">
+                  <span className="text-lg font-bold text-gray-900 tracking-wider">
+                    {schoolName}
+                  </span>
+                </div>
+              )}
+
+              {/* Exam title */}
+              <div className="text-center mb-4">
+                <h1 className="text-xl font-bold text-gray-900 tracking-wider">
                   {paperTitle || '数学试卷'}
                 </h1>
+              </div>
+
+              {/* Metadata line: proposer + time + score */}
+              <div className="flex justify-between items-center text-sm text-gray-600 mb-6 pb-3 border-b-2 border-gray-800">
+                <span>命题人：____________</span>
+                <span>考试时间：{examTime || '90'}分钟 &nbsp; 满分：{totalScore || '120'}分</span>
               </div>
 
               {/* Questions */}
@@ -107,7 +137,7 @@ export default function PaperPreview({
           <div className="flex justify-between mt-3 text-sm text-gray-600">
             <span>姓名：_______________</span>
             <span>班级：_______________</span>
-            <span>得分：_______/{totalScore}</span>
+            <span>得分：_______/{questions.length * 10}</span>
           </div>
         </div>
 
@@ -197,7 +227,6 @@ function renderQuestionItem(item, previewMode, idx) {
               className="question-image max-w-[80%] max-h-60 mt-2 rounded border border-gray-200"
             />
           )}
-          {/* Answer area lines for student version */}
           {previewMode === 'student' && (
             <div className="mt-2 border-b border-dashed border-gray-300 h-16" />
           )}
