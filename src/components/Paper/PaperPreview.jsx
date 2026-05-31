@@ -16,14 +16,86 @@ export default function PaperPreview({
   }, [questions, numberingMode])
 
   const totalScore = questions.length * 10 // 默认每题10分
+  const isA3 = pageSize === 'A3'
 
-  const pageClass = pageSize === 'A3'
+  const pageClass = isA3
     ? 'max-w-[1122px]' // A3 width at ~96dpi scaled
     : 'max-w-[794px]'  // A4 width at ~96dpi
 
+  // ── A3 layout: vertical sidebar on the left ──
+  if (isA3) {
+    return (
+      <div
+        className="bg-white rounded-xl border border-border shadow-sm overflow-y-auto h-full"
+        data-paper-container
+      >
+        <div className={`mx-auto ${pageClass} p-8`}>
+          <div className="flex">
+            {/* Left sidebar: name & class vertical, bottom-to-top */}
+            <div className="flex-shrink-0 w-16 flex flex-col items-center justify-end relative mr-4">
+              {/* Vertical divider line */}
+              <div className="absolute right-0 top-0 bottom-0 w-px bg-gray-800" />
+              {/* Name & Class text, rotated bottom-to-top */}
+              <div
+                className="text-sm text-gray-600 whitespace-nowrap pb-4"
+                style={{
+                  writingMode: 'vertical-rl',
+                  textOrientation: 'mixed',
+                  transform: 'rotate(180deg)',
+                }}
+              >
+                <span className="mr-4">姓名：_______________</span>
+                <span>班级：_______________</span>
+              </div>
+            </div>
+
+            {/* Right: main content */}
+            <div className="flex-1 min-w-0">
+              {/* Title (centered, no score) */}
+              <div className="text-center mb-8 border-b-2 border-gray-800 pb-4">
+                <h1 className="text-2xl font-bold text-gray-900 font-heading tracking-wider">
+                  {paperTitle || '数学试卷'}
+                </h1>
+              </div>
+
+              {/* Questions */}
+              {numbered.length === 0 ? (
+                <div className="text-center py-20 text-gray-400">
+                  <p className="text-lg">👈 请从左侧选择题目</p>
+                  <p className="text-sm mt-2">筛选后勾选题目即可预览试卷</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {numberingMode === 'nested'
+                    ? renderNestedQuestions(numbered, previewMode)
+                    : renderFlatQuestions(numbered, previewMode)
+                  }
+                </div>
+              )}
+
+              {/* Teacher version separator */}
+              {previewMode === 'teacher' && questions.length > 0 && (
+                <div className="mt-12 pt-4 border-t-2 border-dashed border-red-300">
+                  <h2 className="text-xl font-bold text-red-700 mb-6 text-center">
+                    ———— 参考答案 ————
+                  </h2>
+                  {numberingMode === 'nested'
+                    ? renderNestedAnswers(numbered)
+                    : renderFlatAnswers(numbered)
+                  }
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── A4 layout: default ──
   return (
     <div
-      className={`bg-white rounded-xl border border-border shadow-sm overflow-y-auto h-full`}
+      className="bg-white rounded-xl border border-border shadow-sm overflow-y-auto h-full"
       data-paper-container
     >
       <div className={`mx-auto ${pageClass} p-8`}>

@@ -492,11 +492,14 @@ ${rawText}
 
 /**
  * Batch recognition: extract multiple questions from one or more exam paper images.
+ * Splits images into chunks to avoid exceeding API request size limits (413 error).
  * Returns an array of question objects in order.
  */
 export async function recognizeBatchImage(files, config, onProgress) {
   const { baseUrl, apiKey, model } = config
   if (!baseUrl || !model) throw new Error('请先配置并测试视觉识别 API')
+
+  const CHUNK_SIZE = 3 // images per API request to stay within size limits
 
   onProgress?.(`正在读取 ${files.length} 张图片...`)
 
@@ -510,13 +513,21 @@ export async function recognizeBatchImage(files, config, onProgress) {
     }))
   )
 
-  onProgress?.('AI 正在识别所有题目...')
+  // Split into chunks
+  const chunks = []
+  for (let i = 0; i < dataUrls.length; i += CHUNK_SIZE) {
+    chunks.push(dataUrls.slice(i, i + CHUNK_SIZE))
+  }
 
-  // Build content array: text prompt + all images
-  const contentParts = [
-    {
-      type: 'text',
-      text: `这是一份数学试卷的图片（共 ${dataUrls.length} 张）。请识别图片中所有的题目，按题号顺序列出。
+  const allQuestions = []
+
+  for (let c = 0; c < chunks.length; c++) {
+    const chunk = chunks[c]
+    const globalStart = c * CHUNK_SIZE + 1
+    const globalEnd = Math.min((c + 1) * CHUNK_SIZE, dataUrls.length)
+    onProgress?.(`AI 正在识别第 ${globalStart}-${globalEnd} 张（共 ${dataUrls.length} 张）...`)
+
+    const prompt = `这是一份数学试卷的图片（第 ${globalStart}-${globalEnd} 张，共 ${dataUrls.length} 张）。请识别图片中所有的题目，按题号顺序列出。
 
 对每一题，提取以下信息并返回 JSON 数组：
 [
@@ -536,79 +547,84 @@ export async function recognizeBatchImage(files, config, onProgress) {
 3. 如果图片中有图形无法用文字描述，在 content 中标注"（如图）"
 4. answer 只包含最终结果，不含解题步骤
 5. 只返回 JSON 数组，不要任何解释`
+
+    let text = ''
+
+    if (isDashscopeNative(baseUrl)) {
+      const nativeContent = [
+        { text: prompt },
+        ...chunk.map(url => ({ image: url })),
+      ]
+      const res = await fetchWithTimeout(baseUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          input: { messages: [{ role: 'user', content: nativeContent }] },
+          parameters: { max_tokens: 16000 },
+        }),
+      }, 180000)
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        throw new Error(`API 请求失败 (${res.status}): ${errText.slice(0, 300)}`)
+      }
+      const data = await res.json()
+      text = data.output?.text?.trim()
+        || data.output?.choices?.[0]?.message?.content?.[0]?.text?.trim()
+        || ''
+    } else {
+      // OpenAI compatible
+      const url = isDashscope(baseUrl)
+        ? buildUrl(baseUrl, '/chat/completions')
+        : buildUrl(baseUrl, '/v1/chat/completions')
+
+      const contentParts = [
+        { type: 'text', text: prompt },
+        ...chunk.map(url => ({ type: 'image_url', image_url: { url } })),
+      ]
+
+      const res = await fetchWithTimeout(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: contentParts }],
+          max_tokens: 16000,
+        }),
+      }, 180000)
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        throw new Error(`API 请求失败 (${res.status}): ${errText.slice(0, 300)}`)
+      }
+      const data = await res.json()
+      text = data.choices?.[0]?.message?.content?.trim() || ''
     }
-  ]
 
-  for (const url of dataUrls) {
-    contentParts.push({ type: 'image_url', image_url: { url } })
-  }
-
-  // Determine endpoint URL
-  let url
-  if (isDashscopeNative(baseUrl)) {
-    url = baseUrl
-  } else if (isDashscope(baseUrl)) {
-    url = buildUrl(baseUrl, '/chat/completions')
-  } else {
-    url = buildUrl(baseUrl, '/v1/chat/completions')
-  }
-
-  let text = ''
-
-  if (isDashscopeNative(baseUrl)) {
-    const nativeContent = [
-      { text: contentParts[0].text },
-      ...dataUrls.map(url => ({ image: url })),
-    ]
-    const res = await fetchWithTimeout(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        input: { messages: [{ role: 'user', content: nativeContent }] },
-        parameters: { max_tokens: 16000 },
-      }),
-    }, 180000)
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      throw new Error(`API 请求失败 (${res.status}): ${errText.slice(0, 300)}`)
+    if (!text) {
+      throw new Error('API 返回内容为空，请检查 API 配置和模型是否支持多模态识别')
     }
-    const data = await res.json()
-    text = data.output?.text?.trim()
-      || data.output?.choices?.[0]?.message?.content?.[0]?.text?.trim()
-      || ''
-  } else {
-    // OpenAI compatible
-    const res = await fetchWithTimeout(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{ role: 'user', content: contentParts }],
-        max_tokens: 16000,
-      }),
-    }, 180000)
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      throw new Error(`API 请求失败 (${res.status}): ${errText.slice(0, 300)}`)
-    }
-    const data = await res.json()
-    text = data.choices?.[0]?.message?.content?.trim() || ''
+    // Parse the JSON array from this chunk
+    const parsed = parseQuestionsFromText(text)
+    allQuestions.push(...parsed)
   }
 
-  if (!text) {
-    throw new Error('API 返回内容为空，请检查 API 配置和模型是否支持多模态识别')
-  }
+  onProgress?.(`识别完成，共 ${allQuestions.length} 道题`)
+  return allQuestions
+}
 
-  // Parse the JSON array — try multiple extraction strategies
+/**
+ * Parse a JSON array of questions from LLM response text.
+ */
+function parseQuestionsFromText(text) {
   const tryParse = (str) => {
     const parsed = JSON.parse(str)
     if (Array.isArray(parsed) && parsed.length > 0) {
@@ -643,7 +659,7 @@ export async function recognizeBatchImage(files, config, onProgress) {
         try {
           const result = tryParse(fixed + suffix)
           if (result) {
-            console.warn('[recognizeBatchImage] JSON was truncated, recovered', result.length, 'questions')
+            console.warn('[parseQuestionsFromText] JSON was truncated, recovered', result.length, 'questions')
             return result
           }
         } catch { /* keep trying */ }
@@ -666,7 +682,7 @@ export async function recognizeBatchImage(files, config, onProgress) {
   if (text.trim() === '[]' || text.trim() === '[ ]') {
     throw new Error('API 返回空数组，未识别到任何题目。请确认图片清晰且包含数学题目')
   }
-  console.warn('[recognizeBatchImage] Falling back to raw text, length:', text.length)
+  console.warn('[parseQuestionsFromText] Falling back to raw text, length:', text.length)
   return [{ content: text, answer: '', grade: '', topic: '', tags: [] }]
 }
 

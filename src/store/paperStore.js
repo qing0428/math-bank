@@ -152,6 +152,7 @@ async function getImageDimensions(url) {
  */
 export async function exportToWord(numbered, numberingMode, paperTitle, version, pageSize, filename) {
   const isTeacher = version === 'teacher'
+  const isA3 = pageSize === 'A3'
   const size = PAGE_SIZES[pageSize] || PAGE_SIZES.A4
 
   // Convert mm to twip: 1 mm = ~56.7 twip
@@ -179,19 +180,32 @@ export async function exportToWord(numbered, numberingMode, paperTitle, version,
     })
   )
 
-  // Header info line
-  questionChildren.push(
-    new Paragraph({
-      spacing: { after: 400 },
-      children: [
-        new TextRun({ text: '姓名：_______________', size: 22, font: 'SimSun' }),
-        new TextRun({ text: '    ', size: 22 }),
-        new TextRun({ text: '班级：_______________', size: 22, font: 'SimSun' }),
-        new TextRun({ text: '    ', size: 22 }),
-        new TextRun({ text: '得分：_______', size: 22, font: 'SimSun' }),
-      ],
-    })
-  )
+  // Header info line — A3: no score; A4: include score
+  if (isA3) {
+    questionChildren.push(
+      new Paragraph({
+        spacing: { after: 400 },
+        children: [
+          new TextRun({ text: '姓名：_______________', size: 22, font: 'SimSun' }),
+          new TextRun({ text: '    ', size: 22 }),
+          new TextRun({ text: '班级：_______________', size: 22, font: 'SimSun' }),
+        ],
+      })
+    )
+  } else {
+    questionChildren.push(
+      new Paragraph({
+        spacing: { after: 400 },
+        children: [
+          new TextRun({ text: '姓名：_______________', size: 22, font: 'SimSun' }),
+          new TextRun({ text: '    ', size: 22 }),
+          new TextRun({ text: '班级：_______________', size: 22, font: 'SimSun' }),
+          new TextRun({ text: '    ', size: 22 }),
+          new TextRun({ text: '得分：_______', size: 22, font: 'SimSun' }),
+        ],
+      })
+    )
+  }
 
   // Questions
   for (const item of numbered) {
