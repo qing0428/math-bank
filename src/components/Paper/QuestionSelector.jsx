@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { GRADES, TOPICS } from '../../store/questionStore'
 import MixedContent from '../common/MixedContent'
 
-export default function QuestionSelector({ questions, selectedIds, onToggle, onReorder }) {
+export default function QuestionSelector({ questions, selectedIds, onToggle, onReorder, groupOrder, onGroupOrderChange }) {
   const allTags = useMemo(() => {
     const tagSet = new Set()
     questions.forEach(q => (q.tags || []).forEach(t => tagSet.add(t)))
@@ -177,6 +177,34 @@ export default function QuestionSelector({ questions, selectedIds, onToggle, onR
           </div>
         )}
       </div>
+
+      {/* Group order for nested mode */}
+      {selectedQuestions.length > 0 && groupOrder && onGroupOrderChange && (
+        <div className="bg-white rounded-xl border border-border shadow-sm p-3 flex-shrink-0">
+          <h4 className="text-xs font-semibold text-gray-500 mb-2">题型分组顺序（嵌套模式）</h4>
+          <div className="space-y-1">
+            {groupOrder.map((type, idx) => (
+              <div key={type} className="flex items-center gap-2 px-2 py-1 rounded bg-gray-50 text-xs group">
+                <span className="text-gray-400 w-5 text-center flex-shrink-0">{idx + 1}</span>
+                <span className="flex-1 text-gray-700">{'一二三四五六七八九十'[idx] || idx + 1}、{type}</span>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {idx > 0 && (
+                    <button onClick={() => {
+                      const next = [...groupOrder];[next[idx - 1], next[idx]] = [next[idx], next[idx - 1]]; onGroupOrderChange(next)
+                    }} className="text-gray-400 hover:text-primary-600 cursor-pointer">↑</button>
+                  )}
+                  {idx < groupOrder.length - 1 && (
+                    <button onClick={() => {
+                      const next = [...groupOrder];[next[idx], next[idx + 1]] = [next[idx + 1], next[idx]]; onGroupOrderChange(next)
+                    }} className="text-gray-400 hover:text-primary-600 cursor-pointer">↓</button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-gray-300 mt-1">上下拖动调整题型出现顺序</p>
+        </div>
+      )}
 
       {/* Selected questions order */}
       {selectedQuestions.length > 0 && (

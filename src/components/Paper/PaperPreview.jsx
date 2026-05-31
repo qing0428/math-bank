@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import MixedContent from '../common/MixedContent'
 import { generateFlatNumbers, generateNestedNumbers } from '../../utils/numbering'
+import { stripMarkdown } from '../../utils/textUtils'
 
 const NEEDS_SPACE_TYPES = ['解决问题', '解答题', '证明题', '画图题']
 
@@ -9,12 +10,13 @@ export default function PaperPreview({
   numberingMode,
   previewMode,
   paperTitle,
+  groupOrder = [],
 }) {
   const numbered = useMemo(() => {
     if (questions.length === 0) return []
     if (numberingMode === 'flat') return generateFlatNumbers(questions)
-    return generateNestedNumbers(questions)
-  }, [questions, numberingMode])
+    return generateNestedNumbers(questions, groupOrder)
+  }, [questions, numberingMode, groupOrder])
 
   return (
     <div className="bg-white rounded-xl border border-border shadow-sm overflow-y-auto h-full" data-paper-container>
@@ -158,22 +160,24 @@ function renderFlatAnswers(numbered) {
 
 function renderAnswerItem(item, idx) {
   const q = item.question
+  const cleanAnswer = stripMarkdown(q.answer || '')
+  const cleanSolution = stripMarkdown(q.solution || '')
   return (
     <div key={idx} className="answer-block mb-1.5 flex gap-1.5 text-xs">
       <span className="font-bold text-gray-700 flex-shrink-0">{item.number}</span>
       <div className="flex-1">
-        {q.answer ? (
+        {cleanAnswer ? (
           <span className="text-blue-700">
             <span className="font-medium">答：</span>
-            <MixedContent content={q.answer} />
+            <MixedContent content={cleanAnswer} />
           </span>
         ) : (
           <span className="text-gray-400 italic">（暂无）</span>
         )}
-        {q.solution && (
+        {cleanSolution && (
           <span className="text-gray-500 ml-2">
             <span className="font-medium">解：</span>
-            <MixedContent content={q.solution} />
+            <MixedContent content={cleanSolution} />
           </span>
         )}
       </div>

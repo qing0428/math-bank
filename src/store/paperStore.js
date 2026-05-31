@@ -27,6 +27,46 @@ function getDefaultConfig() {
   }
 }
 
+// ─── Saved Compositions ─────────────────────────────────────
+
+const COMPOSITIONS_KEY = 'mathSavedCompositions'
+
+export function loadCompositions() {
+  try {
+    const stored = localStorage.getItem(COMPOSITIONS_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+export function saveComposition(composition) {
+  const list = loadCompositions()
+  const date = new Date().toISOString().slice(0, 10)
+  const entry = {
+    id: composition.id || `comp_${Date.now()}`,
+    name: `${date}_${composition.paperTitle || '数学试卷'}`,
+    date,
+    paperTitle: composition.paperTitle,
+    numberingMode: composition.numberingMode,
+    selectedIds: composition.selectedIds,
+    savedAt: Date.now(),
+  }
+  const existing = list.findIndex(c => c.id === entry.id)
+  if (existing >= 0) {
+    list[existing] = entry
+  } else {
+    list.unshift(entry)
+  }
+  localStorage.setItem(COMPOSITIONS_KEY, JSON.stringify(list))
+  return entry
+}
+
+export function deleteComposition(id) {
+  const list = loadCompositions().filter(c => c.id !== id)
+  localStorage.setItem(COMPOSITIONS_KEY, JSON.stringify(list))
+}
+
 // ─── PDF Export ──────────────────────────────────────────────
 
 async function captureElement(element, scale = 2) {

@@ -27,8 +27,6 @@ function toCircled(n) {
 
 /**
  * Generate flat sequential numbers: 1. 2. 3. ...
- * @param {Array} questions - Array of question objects
- * @returns {Array} - [{ question, number: '1.' }, ...]
  */
 export function generateFlatNumbers(questions) {
   return questions.map((q, i) => ({
@@ -39,13 +37,11 @@ export function generateFlatNumbers(questions) {
 
 /**
  * Generate nested numbers grouped by questionType.
- * Level 1: 一、二、三 (question type groups)
- * Level 2: 1. 2. 3. (questions within group)
- *
  * @param {Array} questions - Array of question objects
+ * @param {Array} [groupOrder] - Optional array of questionType strings defining group order
  * @returns {Array} - [{ question, groupLabel, number, type }, ...]
  */
-export function generateNestedNumbers(questions) {
+export function generateNestedNumbers(questions, groupOrder = null) {
   // Group by questionType
   const groups = []
   const groupMap = {}
@@ -59,8 +55,25 @@ export function generateNestedNumbers(questions) {
     groupMap[type].questions.push(q)
   })
 
+  // If groupOrder specified, reorder groups accordingly
+  let orderedGroups = groups
+  if (groupOrder && groupOrder.length > 0) {
+    orderedGroups = []
+    const used = new Set()
+    for (const type of groupOrder) {
+      if (groupMap[type]) {
+        orderedGroups.push(groupMap[type])
+        used.add(type)
+      }
+    }
+    // Append remaining groups not in groupOrder
+    for (const g of groups) {
+      if (!used.has(g.type)) orderedGroups.push(g)
+    }
+  }
+
   const result = []
-  groups.forEach((group, gi) => {
+  orderedGroups.forEach((group, gi) => {
     const groupLabel = `${toChineseNumber(gi + 1)}、${group.type}`
     group.questions.forEach((q, qi) => {
       result.push({
@@ -77,9 +90,6 @@ export function generateNestedNumbers(questions) {
 
 /**
  * Format a sub-number for nested lists.
- * @param {number} level - 0 = (1), 1 = ①
- * @param {number} n - 1-based index
- * @returns {string}
  */
 export function formatSubNumber(level, n) {
   if (level === 0) return `（${n}）`
