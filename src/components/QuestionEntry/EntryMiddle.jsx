@@ -328,6 +328,28 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
         />
       </div>
 
+      {/* Attached image (from batch recognition) */}
+      {question.imageUrl && (
+        <div className="bg-blue-50 rounded-lg border border-blue-200 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-medium text-blue-700">📎 附带图片</label>
+            <button
+              onClick={() => update('imageUrl', '')}
+              className="text-xs text-red-500 hover:text-red-700 cursor-pointer"
+            >
+              ✕ 移除图片
+            </button>
+          </div>
+          <div className="bg-white rounded border border-blue-200 p-2 flex justify-center">
+            <img
+              src={question.imageUrl}
+              alt="题目图片"
+              className="max-w-full max-h-48 object-contain rounded"
+            />
+          </div>
+        </div>
+      )}
+
       <div>
         <label className="block text-xs font-medium text-gray-500 mb-1">答案 (LaTeX)</label>
         <textarea

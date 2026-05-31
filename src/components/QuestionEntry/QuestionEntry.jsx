@@ -29,16 +29,20 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
 
   const handleBatchRecognized = (results) => {
     // Create question objects from batch results
-    const batchList = results.map((r, i) => createQuestion({
-      content: r.content,
-      answer: r.answer,
-      grade: r.grade,
-      topic: r.topic,
-      questionType: r.questionType,
-      tags: r.tags,
-      imageUrl: r.imageUrl || '',
-      examName: examName || '',
-    }))
+    const batchList = results.map((r, i) => {
+      // Only attach image if question content references a diagram/table
+      const needsImage = /如图|如表|图[1-9一二三四五六七八九]|表[1-9一二三四五六七八九]|看图|图示|图表/.test(r.content || '')
+      return createQuestion({
+        content: r.content,
+        answer: r.answer,
+        grade: r.grade,
+        topic: r.topic,
+        questionType: r.questionType,
+        tags: r.tags,
+        imageUrl: needsImage ? (r.imageUrl || '') : '',
+        examName: examName || '',
+      })
+    })
     setBatchQuestions(batchList)
     // Select the first one
     if (batchList.length > 0) {

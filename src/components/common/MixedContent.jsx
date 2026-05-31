@@ -240,14 +240,29 @@ function TabularTable({ raw }) {
   )
 }
 
-function renderSegment(seg, index) {
+/**
+ * Expand fill-in-the-blank patterns () with appropriate spacing.
+ * Blank width = answer_length * 0.5 characters (minimum 4 chars).
+ */
+function expandBlanks(text, answer) {
+  if (!answer) return text
+  const ansLen = answer.replace(/\$/g, '').replace(/\\[a-zA-Z]+\{?[^}]*\}?/g, 'X').length
+  const blankChars = Math.max(4, Math.round(ansLen * 0.5))
+  // Replace empty () and （ ） with blank space
+  return text
+    .replace(/\(\s*\)/g, `（${'＿'.repeat(blankChars)}）`)
+    .replace(/（\s*）/g, `（${'＿'.repeat(blankChars)}）`)
+}
+
+function renderSegment(seg, index, answer) {
   if (seg.type === 'text') {
-    const parts = seg.content.split('\n')
+    const processed = expandBlanks(seg.content, answer)
+    const parts = processed.split('\n')
     return (
       <span key={index}>
         {parts.map((part, i) => (
           <span key={i}>
-            {part}
+            {renderTextWithBlanks(part)}
             {i < parts.length - 1 && <br />}
           </span>
         ))}
@@ -288,28 +303,50 @@ function renderSegment(seg, index) {
   return null
 }
 
-export default function MixedContent({ content, className = '' }) {
+/**
+ * Render text that may contain ＿ blank characters, styling them as underlines.
+ */
+function renderTextWithBlanks(text) {
+  if (!text.includes('＿')) return text
+  const parts = text.split(/(＿+)/)
+  return parts.map((part, i) => {
+    if (/^＿+$/.test(part)) {
+      return (
+        <span
+          key={i}
+          className="inline-block border-b border-gray-400"
+          style={{ minWidth: `${part.length * 0.7}em`, height: '1px' }}
+        />
+      )
+    }
+    return <span key={i}>{part}</span>
+  })
+}
+
+export default function MixedContent({ content, answer, className = '' }) {
   if (!content || !content.trim()) {
     return <span className="text-gray-400 italic text-sm">暂无内容</span>
   }
 
   const hasTabular = content.includes('\\begin{tabular}')
 
-  // If no math delimiters and no tabular, just render as plain text
+  // If no math delimiters and no tabular, render as plain text with blank expansion
   if (!content.includes('$') && !hasTabular) {
-    return <span className={className}>{content}</span>
+    const processed = expandBlanks(content, answer)
+    return <span className={className}>{renderTextWithBlanks(processed)}</span>
   }
 
   try {
     const segments = parseMixedContent(content)
 
     if (segments.length === 0) {
-      return <span className={className}>{content}</span>
+      const processed = expandBlanks(content, answer)
+      return <span className={className}>{renderTextWithBlanks(processed)}</span>
     }
 
     return (
       <span className={className}>
-        {segments.map((seg, i) => renderSegment(seg, i))}
+        {segments.map((seg, i) => renderSegment(seg, i, answer))}
       </span>
     )
   } catch {

@@ -1,6 +1,41 @@
+import { useState, useEffect } from 'react'
 import MixedContent from '../common/MixedContent'
 import { stripMarkdown } from '../../utils/textUtils'
 import StarRating from './StarRating'
+
+/**
+ * Adaptive image layout: if image is tall (> 1.5x width), show below content;
+ * if short, show to the right of content.
+ */
+function AdaptiveImage({ src, alt }) {
+  const [dims, setDims] = useState(null)
+
+  useEffect(() => {
+    if (!src) { setDims(null); return }
+    const img = new Image()
+    img.onload = () => setDims({ w: img.naturalWidth, h: img.naturalHeight })
+    img.onerror = () => setDims(null)
+    img.src = src
+  }, [src])
+
+  if (!src) return null
+
+  // Tall image: height > 1.5x width → show below
+  if (dims && dims.h > dims.w * 1.5) {
+    return (
+      <div className="mt-3 w-full">
+        <img src={src} alt={alt} className="w-full max-h-80 object-contain rounded border border-border" />
+      </div>
+    )
+  }
+
+  // Short/wide image: show to the right
+  return (
+    <div className="w-1/3 flex-shrink-0">
+      <img src={src} alt={alt} className="w-full rounded border border-border object-contain" />
+    </div>
+  )
+}
 
 export default function EntryRight({ question, onSave }) {
   const getFilename = () => {
@@ -26,17 +61,11 @@ export default function EntryRight({ question, onSave }) {
         <div className="flex gap-3 items-start">
           {/* Content on the left */}
           <div className="flex-1 min-w-0 text-sm text-gray-800 leading-relaxed">
-            <MixedContent content={question.content || ''} />
+            <MixedContent content={question.content || ''} answer={question.answer} />
           </div>
-          {/* Image on the right — fixed 1/4 width */}
+          {/* Image: adaptive layout based on dimensions */}
           {question.imageUrl && (
-            <div className="w-1/4 flex-shrink-0">
-              <img
-                src={question.imageUrl}
-                alt="题目图片"
-                className="w-full rounded border border-border object-contain"
-              />
-            </div>
+            <AdaptiveImage src={question.imageUrl} alt="题目图片" />
           )}
         </div>
       </div>

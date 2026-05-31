@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import MixedContent from '../common/MixedContent'
 import { generateFlatNumbers, generateNestedNumbers } from '../../utils/numbering'
 
@@ -209,7 +209,24 @@ function renderFlatQuestions(numbered, previewMode) {
 }
 
 function renderQuestionItem(item, previewMode, idx) {
+  return <QuestionItem key={idx} item={item} previewMode={previewMode} />
+}
+
+function QuestionItem({ item, previewMode }) {
   const q = item.question
+  const [imgDims, setImgDims] = useState(null)
+
+  useEffect(() => {
+    if (!q.imageUrl) { setImgDims(null); return }
+    const img = new Image()
+    img.onload = () => setImgDims({ w: img.naturalWidth, h: img.naturalHeight })
+    img.onerror = () => setImgDims(null)
+    img.src = q.imageUrl
+  }, [q.imageUrl])
+
+  // Tall image: height > 1.5x width → show below content
+  const imageBelow = imgDims && imgDims.h > imgDims.w * 1.5
+
   return (
     <div className="question-block mb-4">
       <div className="flex gap-2">
@@ -217,14 +234,26 @@ function renderQuestionItem(item, previewMode, idx) {
           {item.number}
         </span>
         <div className="flex-1">
-          <div className="text-gray-800 leading-relaxed">
-            <MixedContent content={q.content || ''} />
+          <div className="flex gap-3 items-start">
+            {/* Content */}
+            <div className="flex-1 min-w-0 text-gray-800 leading-relaxed">
+              <MixedContent content={q.content || ''} answer={q.answer} />
+            </div>
+            {/* Short image: to the right */}
+            {q.imageUrl && !imageBelow && (
+              <img
+                src={q.imageUrl}
+                alt="题目图片"
+                className="question-image w-1/3 max-h-40 object-contain rounded border border-gray-200 flex-shrink-0"
+              />
+            )}
           </div>
-          {q.imageUrl && (
+          {/* Tall image: below content */}
+          {q.imageUrl && imageBelow && (
             <img
               src={q.imageUrl}
               alt="题目图片"
-              className="question-image max-w-[80%] max-h-60 mt-2 rounded border border-gray-200"
+              className="question-image w-full max-h-60 object-contain mt-2 rounded border border-gray-200"
             />
           )}
           {previewMode === 'student' && (
