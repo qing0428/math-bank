@@ -20,6 +20,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
       grade: prev.grade || result.grade || '',
       topic: prev.topic || result.topic || '',
       questionType: prev.questionType || result.questionType || '',
+      difficulty: result.difficulty || prev.difficulty,
       tags: result.tags?.length
         ? [...new Set([...(prev.tags || []), ...result.tags])]
         : prev.tags,
@@ -38,6 +39,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
         grade: r.grade,
         topic: r.topic,
         questionType: r.questionType,
+        difficulty: r.difficulty,
         tags: r.tags,
         imageUrl: needsImage ? (r.imageUrl || '') : '',
         examName: examName || '',

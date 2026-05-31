@@ -3,6 +3,7 @@ import StarRating from './StarRating'
 import { GRADES, TOPICS, getQuestionTypesForGrade } from '../../store/questionStore'
 import { generateSolution, autoTag } from '../../services/llmService'
 import MixedContent from '../common/MixedContent'
+import ImageCropper from '../common/ImageCropper'
 
 // Strip LaTeX and markdown for plain text preview
 function stripForPreview(text) {
@@ -31,6 +32,7 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
   const [generateError, setGenerateError] = useState('')
   const [autoGenerate, setAutoGenerate] = useState(false)
   const [fastMode, setFastMode] = useState(false)
+  const [showCropper, setShowCropper] = useState(false)
 
   const textConfigured = llmConfig?.text?.connected && llmConfig?.text?.model
 
@@ -333,21 +335,46 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
         <div className="bg-blue-50 rounded-lg border border-blue-200 p-3">
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-medium text-blue-700">📎 附带图片</label>
-            <button
-              onClick={() => update('imageUrl', '')}
-              className="text-xs text-red-500 hover:text-red-700 cursor-pointer"
-            >
-              ✕ 移除图片
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCropper(true)}
+                className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer"
+              >
+                ✂️ 裁剪
+              </button>
+              <button
+                onClick={() => update('imageUrl', '')}
+                className="text-xs text-red-500 hover:text-red-700 cursor-pointer"
+              >
+                ✕ 移除
+              </button>
+            </div>
           </div>
-          <div className="bg-white rounded border border-blue-200 p-2 flex justify-center">
+          <div
+            className="bg-white rounded border border-blue-200 p-2 flex justify-center cursor-pointer hover:border-blue-400 transition-colors"
+            onClick={() => setShowCropper(true)}
+            title="点击裁剪图片"
+          >
             <img
               src={question.imageUrl}
               alt="题目图片"
               className="max-w-full max-h-48 object-contain rounded"
             />
           </div>
+          <p className="text-xs text-blue-400 mt-1 text-center">点击图片裁剪</p>
         </div>
+      )}
+
+      {/* Image Cropper overlay */}
+      {showCropper && question.imageUrl && (
+        <ImageCropper
+          imageUrl={question.imageUrl}
+          onCropComplete={(croppedUrl) => {
+            update('imageUrl', croppedUrl)
+            setShowCropper(false)
+          }}
+          onCancel={() => setShowCropper(false)}
+        />
       )}
 
       <div>

@@ -29,6 +29,16 @@ function buildUrl(base, path) {
 }
 
 /**
+ * Clamp difficulty value to 1-5 integer, default 3.
+ */
+function clampDifficulty(val) {
+  const n = parseInt(val, 10)
+  if (isNaN(n) || n < 1) return 3
+  if (n > 5) return 5
+  return n
+}
+
+/**
  * Compress an image to reduce base64 size for API requests.
  * Resizes to max dimension and converts to JPEG.
  * @param {string} dataUrl - Original image data URL
@@ -488,6 +498,7 @@ ${rawText}
   "grade": "年级（如「七年级」「高一」，不确定则空字符串）",
   "topic": "知识板块，必须从以下选项中选择一个：数与代数、图形与几何、统计与概率、综合与实践、集合与逻辑、函数、三角函数、数列、不等式、平面向量、立体几何、解析几何、导数与微积分、排列组合、概率、统计、复数、算法初步。不确定则空字符串。",
   "questionType": "题目类型，从以下选项中选择：选择题、判断题、填空题、画图题、解决问题、计算题、证明题、解答题。不确定则空字符串。",
+  "difficulty": "题目难度，整数1-5（1=简单 3=中等 5=很难），根据题目涉及的知识深度、计算复杂度、思维难度综合判断",
   "tags": ["标签1", "标签2", "标签3"]
 }
 
@@ -496,7 +507,8 @@ ${rawText}
 2. 中文文字保留原样，不要包含题号（如"13."）
 3. answer 字段只填写最终答案或算式，不包含解题步骤
 4. topic 必须严格从上述列表中选择，不要自行发挥
-5. 只返回 JSON，不要任何解释`
+5. difficulty 根据知识深度、计算量、思维复杂度综合评定：1=基础计算，2=简单应用，3=综合运用，4=较难综合，5=竞赛难度
+6. 只返回 JSON，不要任何解释`
 
   let text = ''
 
@@ -517,6 +529,7 @@ ${rawText}
         grade: parsed.grade || '',
         topic: parsed.topic || '',
         questionType: parsed.questionType || '',
+        difficulty: clampDifficulty(parsed.difficulty),
         tags: Array.isArray(parsed.tags) ? parsed.tags : [],
       }
     }
@@ -578,6 +591,7 @@ export async function recognizeBatchImage(files, config, onProgress) {
     "grade": "年级，不确定则空字符串",
     "topic": "知识板块，必须从以下选项中选择：数与代数、图形与几何、统计与概率、综合与实践、集合与逻辑、函数、三角函数、数列、不等式、平面向量、立体几何、解析几何、导数与微积分、排列组合、概率、统计、复数、算法初步。不确定则空字符串。",
     "questionType": "题目类型，从以下选项中选择：选择题、判断题、填空题、画图题、解决问题、计算题、证明题、解答题。不确定则空字符串。",
+    "difficulty": "题目难度，整数1-5（1=基础计算 2=简单应用 3=综合运用 4=较难综合 5=竞赛难度）",
     "tags": ["标签1", "标签2"]
   }
 ]
@@ -587,7 +601,8 @@ export async function recognizeBatchImage(files, config, onProgress) {
 2. 每道题的 content 包含完整的题目文字和公式，中文保留原样，不要包含题号（如"13."）
 3. 如果图片中有图形无法用文字描述，在 content 中标注"（如图）"
 4. answer 只包含最终结果，不含解题步骤
-5. 只返回 JSON 数组，不要任何解释`
+5. difficulty 根据知识深度、计算量、思维复杂度综合评定
+6. 只返回 JSON 数组，不要任何解释`
 
     let text = ''
 
@@ -680,6 +695,7 @@ function parseQuestionsFromText(text) {
         grade: q.grade || '',
         topic: q.topic || '',
         questionType: q.questionType || '',
+        difficulty: clampDifficulty(q.difficulty),
         tags: Array.isArray(q.tags) ? q.tags : [],
       }))
     }
@@ -858,6 +874,7 @@ ${text.slice(0, 30000)}
         grade: q.grade || '',
         topic: q.topic || '',
         questionType: q.questionType || '',
+        difficulty: clampDifficulty(q.difficulty),
         tags: Array.isArray(q.tags) ? q.tags : [],
       }))
     }

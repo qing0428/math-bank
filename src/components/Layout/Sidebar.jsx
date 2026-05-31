@@ -55,7 +55,7 @@ export default function Sidebar({ currentPage, onNavigate, collapsed, onToggle }
       {!collapsed && (
         <div className="px-5 py-3 border-t border-white/20 text-xs text-primary-200">
           <p>UI/UX Pro Max Powered</p>
-          <p className="text-primary-300 mt-0.5">v1.0.3</p>
+          <p className="text-primary-300 mt-0.5">v1.0.4</p>
         </div>
       )}
     </aside>

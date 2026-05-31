@@ -125,40 +125,75 @@ function parseMixedContent(text) {
  * into structured rows and cells for HTML rendering.
  */
 function parseTabular(raw) {
-  // Extract column spec
+  // Extract column spec — handle |c|c|c|, {c@{}l}, p{3cm}, etc.
   const specMatch = raw.match(/\\begin\{tabular\}\{([^}]*)\}/)
   const colSpec = specMatch ? specMatch[1] : ''
 
-  // Extract body (between \begin{tabular}{colspec} and \end{tabular})
-  const bodyStart = raw.indexOf('}', raw.indexOf('\\begin{tabular}')) + 1
+  // Extract body: after the closing } of colSpec, before \end{tabular}
+  const beginEnd = raw.indexOf('}', raw.indexOf('\\begin{tabular}'))
+  const bodyStart = beginEnd + 1
   const bodyEnd = raw.lastIndexOf('\\end{tabular}')
   let body = raw.slice(bodyStart, bodyEnd).trim()
 
-  // Remove outer \hline at start/end
-  body = body.replace(/^\\hline\s*/, '').replace(/\s*\\hline\s*$/, '')
+  // Clean up: remove \hline, \cline{...}, \toprule, \midrule, \bottomrule
+  body = body.replace(/\\(?:hline|toprule|midrule|bottomrule)\s*/g, '')
+  body = body.replace(/\\cline\{[^}]*\}\s*/g, '')
 
-  // Split into rows by \\
-  const rawRows = body.split('\\\\').map(r => r.trim()).filter(Boolean)
+  // Split rows by \\ (may have trailing optional arg \\[2pt])
+  const rawRows = body.split(/\\\\(?:\[[^\]]*\])?/).map(r => r.trim()).filter(Boolean)
 
   const rows = rawRows.map(row => {
-    // Remove \hline from row
-    let cleaned = row.replace(/\\hline/g, '').trim()
-    if (!cleaned) return null
-    // Split cells by &
-    const cells = cleaned.split('&').map(c => c.trim())
-    return cells
-  }).filter(Boolean)
+    if (!row) return null
+    // Split cells by & (outside of $...$ math delimiters)
+    const cells = splitByAmpersand(row)
+    return cells.map(c => cleanCellContent(c))
+  }).filter(r => r && r.length > 0)
 
-  // Parse column alignment from colSpec
+  // Parse column alignment
   const colAlignments = []
   for (const ch of colSpec) {
     if (ch === 'l') colAlignments.push('left')
     else if (ch === 'c') colAlignments.push('center')
     else if (ch === 'r') colAlignments.push('right')
-    // skip |, @{}, p{}, etc.
   }
 
   return { rows, colAlignments, hasVLines: colSpec.includes('|') }
+}
+
+/**
+ * Split a row string by & but respect $...$ math delimiters.
+ */
+function splitByAmpersand(str) {
+  const cells = []
+  let current = ''
+  let inMath = false
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i]
+    if (ch === '$') {
+      inMath = !inMath
+      current += ch
+    } else if (ch === '&' && !inMath) {
+      cells.push(current)
+      current = ''
+    } else {
+      current += ch
+    }
+  }
+  cells.push(current)
+  return cells
+}
+
+/**
+ * Clean cell content: strip \multicolumn, \textbf, \textsf, etc.
+ */
+function cleanCellContent(cell) {
+  return cell
+    .replace(/\\multicolumn\{[^}]*\}\{[^}]*\}\{([^}]*)\}/g, '$1')
+    .replace(/\\text(?:bf|sf|rm|it)\{([^}]*)\}/g, '$1')
+    .replace(/\\mathbf\{([^}]*)\}/g, '$1')
+    .replace(/\\quad|\\qquad/g, ' ')
+    .replace(/\\,/g, ' ')
+    .trim()
 }
 
 /**
@@ -248,10 +283,11 @@ function expandBlanks(text, answer) {
   if (!answer) return text
   const ansLen = answer.replace(/\$/g, '').replace(/\\[a-zA-Z]+\{?[^}]*\}?/g, 'X').length
   const blankChars = Math.max(4, Math.round(ansLen * 0.5))
-  // Replace empty () and （ ） with blank space
+  // Replace empty () and （ ） with blank space (using Unicode em-space)
+  const blank = ' '.repeat(blankChars)
   return text
-    .replace(/\(\s*\)/g, `（${'＿'.repeat(blankChars)}）`)
-    .replace(/（\s*）/g, `（${'＿'.repeat(blankChars)}）`)
+    .replace(/\(\s*\)/g, `（${blank}）`)
+    .replace(/（\s*）/g, `（${blank}）`)
 }
 
 function renderSegment(seg, index, answer) {
@@ -262,7 +298,7 @@ function renderSegment(seg, index, answer) {
       <span key={index}>
         {parts.map((part, i) => (
           <span key={i}>
-            {renderTextWithBlanks(part)}
+            {part}
             {i < parts.length - 1 && <br />}
           </span>
         ))}
@@ -303,26 +339,6 @@ function renderSegment(seg, index, answer) {
   return null
 }
 
-/**
- * Render text that may contain ＿ blank characters, styling them as underlines.
- */
-function renderTextWithBlanks(text) {
-  if (!text.includes('＿')) return text
-  const parts = text.split(/(＿+)/)
-  return parts.map((part, i) => {
-    if (/^＿+$/.test(part)) {
-      return (
-        <span
-          key={i}
-          className="inline-block border-b border-gray-400"
-          style={{ minWidth: `${part.length * 0.7}em`, height: '1px' }}
-        />
-      )
-    }
-    return <span key={i}>{part}</span>
-  })
-}
-
 export default function MixedContent({ content, answer, className = '' }) {
   if (!content || !content.trim()) {
     return <span className="text-gray-400 italic text-sm">暂无内容</span>
@@ -333,7 +349,7 @@ export default function MixedContent({ content, answer, className = '' }) {
   // If no math delimiters and no tabular, render as plain text with blank expansion
   if (!content.includes('$') && !hasTabular) {
     const processed = expandBlanks(content, answer)
-    return <span className={className}>{renderTextWithBlanks(processed)}</span>
+    return <span className={className}>{processed}</span>
   }
 
   try {
@@ -341,7 +357,7 @@ export default function MixedContent({ content, answer, className = '' }) {
 
     if (segments.length === 0) {
       const processed = expandBlanks(content, answer)
-      return <span className={className}>{renderTextWithBlanks(processed)}</span>
+      return <span className={className}>{processed}</span>
     }
 
     return (
