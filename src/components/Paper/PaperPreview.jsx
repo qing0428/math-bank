@@ -42,26 +42,29 @@ export default function PaperPreview({
               <div className="flex-shrink-0 relative" style={{ width: '3cm' }}>
                 {/* "密封线" text, rotated vertically on far left */}
                 <div
-                  className="absolute left-0 top-0 bottom-0 flex items-center justify-center"
-                  style={{ width: '1cm' }}
+                  className="absolute left-1 top-0 bottom-0 flex items-center justify-center"
+                  style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
                 >
-                  <span
-                    className="text-base font-bold tracking-[0.3em] text-gray-800"
-                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
-                  >
+                  <span className="text-sm font-bold tracking-[0.4em] text-gray-800">
                     密 封 线
                   </span>
                 </div>
-                {/* Student info fields: stacked vertically in a column */}
+                {/* Student info fields with horizontal separators */}
                 <div
-                  className="absolute flex flex-col items-start gap-6 text-sm text-gray-600 pl-3 pt-10"
-                  style={{ left: '0.8cm', right: '0.2cm' }}
+                  className="absolute flex flex-col text-sm text-gray-600 pl-4 pt-6"
+                  style={{ left: '1cm', right: '0' }}
                 >
                   {studentId && (
-                    <span className="whitespace-nowrap">学号：_______________</span>
+                    <div className="py-3 border-b border-gray-400">
+                      学号：_______________
+                    </div>
                   )}
-                  <span className="whitespace-nowrap">姓名：_______________</span>
-                  <span className="whitespace-nowrap">班级：_______________</span>
+                  <div className="py-3 border-b border-gray-400">
+                    姓名：_______________
+                  </div>
+                  <div className="py-3">
+                    班级：_______________
+                  </div>
                 </div>
                 {/* Vertical divider */}
                 <div className="absolute right-0 top-0 bottom-0 w-px bg-gray-800" />
@@ -69,7 +72,7 @@ export default function PaperPreview({
             )}
 
             {/* ─── Right: main content (two columns) ─── */}
-            <div className="flex-1 min-w-0 pl-4">
+            <div className="flex-1 min-w-0 pl-3">
               {/* Header */}
               {schoolName && (
                 <div className="text-center mb-1">
@@ -79,19 +82,21 @@ export default function PaperPreview({
               <div className="text-center mb-2">
                 <h1 className="text-xl font-bold text-gray-900 tracking-wider">{paperTitle || '数学试卷'}</h1>
               </div>
-              <div className="flex justify-between items-center text-sm text-gray-600 mb-4 pb-2 border-b border-gray-400">
+              <div className="flex justify-between items-center text-sm text-gray-600 mb-4 pb-2 border-b-2 border-gray-800">
                 <span>命题人：____________</span>
-                <span>考试时间：{examTime || '90'}分钟 &nbsp; 满分：{totalScore || '120'}分</span>
+                <span>考试时间：{examTime || '90'}分钟 &nbsp;&nbsp; 满分：{totalScore || '120'}分</span>
               </div>
 
-              {/* Two-column layout */}
-              <div className="flex gap-6">
+              {/* Two-column layout with divider */}
+              <div className="flex">
                 {/* Left column */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 pr-3">
                   {renderQuestionList(leftCol, previewMode, numberingMode)}
                 </div>
+                {/* Vertical divider between columns */}
+                <div className="w-px bg-gray-300 flex-shrink-0" />
                 {/* Right column */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 pl-3">
                   {renderQuestionList(rightCol, previewMode, numberingMode)}
                 </div>
               </div>
