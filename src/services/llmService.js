@@ -28,6 +28,43 @@ function buildUrl(base, path) {
   return b + p
 }
 
+/**
+ * Compress an image to reduce base64 size for API requests.
+ * Resizes to max dimension and converts to JPEG.
+ * @param {string} dataUrl - Original image data URL
+ * @param {number} maxDim - Max width/height in pixels (default 1024)
+ * @param {number} quality - JPEG quality 0-1 (default 0.7)
+ * @returns {Promise<string>} Compressed data URL
+ */
+function compressImage(dataUrl, maxDim = 1024, quality = 0.7) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      let { width, height } = img
+      if (width <= maxDim && height <= maxDim && dataUrl.length < 2 * 1024 * 1024) {
+        // Already small enough
+        resolve(dataUrl)
+        return
+      }
+      if (width > height) {
+        if (width > maxDim) { height = Math.round(height * maxDim / width); width = maxDim }
+      } else {
+        if (height > maxDim) { width = Math.round(width * maxDim / height); height = maxDim }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, width, height)
+      ctx.drawImage(img, 0, 0, width, height)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+    img.onerror = () => resolve(dataUrl) // fallback to original
+    img.src = dataUrl
+  })
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(new DOMException('请求超时', 'TimeoutError')), timeoutMs)
@@ -393,13 +430,14 @@ export async function recognizeImage(file, config, onProgress) {
 
   onProgress?.('正在读取图片...')
 
-  // Convert file to base64 data URL
-  const dataUrl = await new Promise((resolve, reject) => {
+  // Convert file to base64 data URL, then compress
+  const rawUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result)
     reader.onerror = reject
     reader.readAsDataURL(file)
   })
+  const dataUrl = await compressImage(rawUrl)
 
   const nativeDashscope = isDashscopeNative(baseUrl)
 
@@ -499,12 +537,12 @@ export async function recognizeBatchImage(files, config, onProgress) {
   const { baseUrl, apiKey, model } = config
   if (!baseUrl || !model) throw new Error('请先配置并测试视觉识别 API')
 
-  const CHUNK_SIZE = 3 // images per API request to stay within size limits
+  const CHUNK_SIZE = 1 // images per API request — 1 for strict size limits (e.g. SenseNova)
 
   onProgress?.(`正在读取 ${files.length} 张图片...`)
 
-  // Convert all files to data URLs
-  const dataUrls = await Promise.all(
+  // Convert all files to data URLs and compress
+  const rawUrls = await Promise.all(
     Array.from(files).map(file => new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result)
@@ -512,6 +550,9 @@ export async function recognizeBatchImage(files, config, onProgress) {
       reader.readAsDataURL(file)
     }))
   )
+
+  onProgress?.('正在压缩图片...')
+  const dataUrls = await Promise.all(rawUrls.map(url => compressImage(url)))
 
   // Split into chunks
   const chunks = []
