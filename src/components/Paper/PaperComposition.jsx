@@ -2,13 +2,15 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import QuestionSelector from './QuestionSelector'
 import PaperPreview from './PaperPreview'
 import PaperSettings from './PaperSettings'
+import AiComposePanel from './AiComposePanel'
 import {
   loadPaperConfig, savePaperConfig, exportToPDF, exportToWord,
   loadCompositions, saveComposition, deleteComposition,
 } from '../../store/paperStore'
 import { generateFlatNumbers, generateNestedNumbers } from '../../utils/numbering'
+import { autoSelectQuestions, aiComposeQuestions } from '../../services/compositionService'
 
-export default function PaperComposition({ questions }) {
+export default function PaperComposition({ questions, llmConfig }) {
   const savedConfig = loadPaperConfig()
 
   const [compId, setCompId] = useState(null)
@@ -20,6 +22,8 @@ export default function PaperComposition({ questions }) {
   const [savedComps, setSavedComps] = useState(loadCompositions())
   const [showExportDialog, setShowExportDialog] = useState(null) // { format, version }
   const [exportFilename, setExportFilename] = useState('')
+  const [showAiPanel, setShowAiPanel] = useState(false)
+  const [composeMessage, setComposeMessage] = useState('')
 
   const previewRef = useRef(null)
 
@@ -71,6 +75,27 @@ export default function PaperComposition({ questions }) {
     setPaperTitle('数学试卷')
     setSelectedIds([])
     setNumberingMode('nested')
+  }
+
+  const handleAiCompose = async (requirements, useAI) => {
+    setComposeMessage('')
+
+    let result
+    if (useAI && llmConfig?.text?.connected) {
+      result = await aiComposeQuestions(questions, requirements, llmConfig.text)
+    } else {
+      result = autoSelectQuestions(questions, requirements)
+    }
+
+    if (result.selected.length === 0) {
+      setComposeMessage(result.message || '没有找到符合条件的题目')
+      return
+    }
+
+    // Replace current selection with AI-selected questions
+    setSelectedIds(result.selected.map(q => q.id))
+    setComposeMessage(result.message)
+    setShowAiPanel(false)
   }
 
   const selectedQuestions = selectedIds
@@ -129,7 +154,16 @@ export default function PaperComposition({ questions }) {
         onPaperTitleChange={setPaperTitle}
         onExport={handleExportClick}
         selectedCount={selectedQuestions.length}
+        onAiCompose={() => setShowAiPanel(true)}
       />
+
+      {/* Compose message */}
+      {composeMessage && (
+        <div className="bg-green-50 rounded-lg border border-green-200 p-3 text-sm text-green-700 flex items-center justify-between">
+          <span>{composeMessage}</span>
+          <button onClick={() => setComposeMessage('')} className="text-green-500 hover:text-green-700 cursor-pointer">✕</button>
+        </div>
+      )}
 
       <div className="flex gap-4 flex-1 min-h-0 overflow-hidden">
         {/* Left: saved compositions + question selector */}
@@ -184,6 +218,16 @@ export default function PaperComposition({ questions }) {
           />
         </div>
       </div>
+
+      {/* AI Compose Panel */}
+      {showAiPanel && (
+        <AiComposePanel
+          questions={questions}
+          onCompose={handleAiCompose}
+          onClose={() => setShowAiPanel(false)}
+          llmConfig={llmConfig}
+        />
+      )}
 
       {/* Export confirmation dialog */}
       {showExportDialog && (

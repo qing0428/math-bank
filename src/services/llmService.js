@@ -1,4 +1,5 @@
 import { stripMarkdown, stripQuestionNumber } from '../utils/textUtils'
+import { getTagPromptHint, normalizeTags } from '../utils/tagNormalize'
 
 /**
  * LLM Service Layer
@@ -97,7 +98,7 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
  *   - OpenAI compatible: dashscope.aliyuncs.com/compatible-mode/v1
  *   - Native DashScope:   dashscope.aliyuncs.com/api/v1/...
  */
-function isDashscope(baseUrl) {
+export function isDashscope(baseUrl) {
   return /dashscope/i.test(baseUrl)
 }
 
@@ -106,7 +107,7 @@ function isDashscope(baseUrl) {
  * Native URLs look like: https://dashscope.aliyuncs.com/api/v1/services/...
  * OpenAI compatible URLs look like: https://dashscope.aliyuncs.com/compatible-mode/v1
  */
-function isDashscopeNative(baseUrl) {
+export function isDashscopeNative(baseUrl) {
   return /dashscope/i.test(baseUrl) && /\/api\/v1\//i.test(baseUrl)
 }
 
@@ -496,6 +497,8 @@ ${rawText}
   "content": "题目的 LaTeX 格式（必填，行间公式用 $$...$$，行内公式用 $...$），不要包含题号",
   "answer": "仅最终答案或算式，不要解题步骤。如果图片中有答案则直接使用；如果没有请自行计算。必填。",
   "grade": "年级（如「七年级」「高一」，不确定则空字符串）",
+  "semester": "上册或下册，根据题目内容推断。小学/初中/高中通常有上下册之分。不确定则空字符串。",
+  "unit": "单元名称，如「第三单元 分数的意义和性质」，仅提取「分数的意义和性质」部分。根据题目内容推断，不确定则空字符串。",
   "topic": "知识板块，必须从以下选项中选择一个：数与代数、图形与几何、统计与概率、综合与实践、集合与逻辑、函数、三角函数、数列、不等式、平面向量、立体几何、解析几何、导数与微积分、排列组合、概率、统计、复数、算法初步。不确定则空字符串。",
   "questionType": "题目类型，从以下选项中选择：选择题、判断题、填空题、画图题、解决问题、计算题、证明题、解答题。不确定则空字符串。",
   "difficulty": "题目难度，整数1-5（1=简单 3=中等 5=很难），根据题目涉及的知识深度、计算复杂度、思维难度综合判断",
@@ -510,7 +513,8 @@ ${rawText}
 5. answer 字段只填写最终答案或算式，不包含解题步骤
 6. topic 必须严格从上述列表中选择，不要自行发挥
 7. difficulty 根据知识深度、计算量、思维复杂度综合评定：1=基础计算，2=简单应用，3=综合运用，4=较难综合，5=竞赛难度
-8. 只返回 JSON，不要任何解释`
+8. semester 和 unit 根据题目内容推断，如有试卷标题信息可参考
+9. 只返回 JSON，不要任何解释`
 
   let text = ''
 
@@ -529,6 +533,8 @@ ${rawText}
         content: stripQuestionNumber(parsed.content || ''),
         answer: parsed.answer || '',
         grade: parsed.grade || '',
+        semester: parsed.semester || '',
+        unit: parsed.unit || '',
         topic: parsed.topic || '',
         questionType: parsed.questionType || '',
         difficulty: clampDifficulty(parsed.difficulty),
@@ -591,6 +597,8 @@ export async function recognizeBatchImage(files, config, onProgress) {
     "content": "题目的 LaTeX 格式（行间公式用 $$...$$，行内公式用 $...$），不要包含题号",
     "answer": "仅最终答案或算式，没有则空字符串",
     "grade": "年级，不确定则空字符串",
+    "semester": "上册或下册，根据试卷标题或题目内容推断，不确定则空字符串",
+    "unit": "单元名称，根据试卷标题或题目内容推断，不确定则空字符串",
     "topic": "知识板块，必须从以下选项中选择：数与代数、图形与几何、统计与概率、综合与实践、集合与逻辑、函数、三角函数、数列、不等式、平面向量、立体几何、解析几何、导数与微积分、排列组合、概率、统计、复数、算法初步。不确定则空字符串。",
     "questionType": "题目类型，从以下选项中选择：选择题、判断题、填空题、画图题、解决问题、计算题、证明题、解答题。不确定则空字符串。",
     "difficulty": "题目难度，整数1-5（1=基础计算 2=简单应用 3=综合运用 4=较难综合 5=竞赛难度）",
@@ -697,6 +705,8 @@ function parseQuestionsFromText(text) {
         content: stripQuestionNumber(q.content || ''),
         answer: q.answer || '',
         grade: q.grade || '',
+        semester: q.semester || '',
+        unit: q.unit || '',
         topic: q.topic || '',
         questionType: q.questionType || '',
         difficulty: clampDifficulty(q.difficulty),
@@ -780,6 +790,8 @@ ${text.slice(0, 15000)}
   "content": "题目的 LaTeX 格式（必填，行间公式用 $$...$$，行内公式用 $...$），不要包含题号",
   "answer": "仅最终答案或算式，不要解题步骤。必填，如果文档中没有答案请自行计算。",
   "grade": "年级（如「七年级」「高一」，不确定则空字符串）",
+  "semester": "上册或下册，根据文档内容推断，不确定则空字符串",
+  "unit": "单元名称，根据文档内容推断，不确定则空字符串",
   "topic": "知识板块，必须从以下选项中选择一个：数与代数、图形与几何、统计与概率、综合与实践、集合与逻辑、函数、三角函数、数列、不等式、平面向量、立体几何、解析几何、导数与微积分、排列组合、概率、统计、复数、算法初步。不确定则空字符串。",
   "questionType": "题目类型，从以下选项中选择：选择题、判断题、填空题、画图题、解决问题、计算题、证明题、解答题。不确定则空字符串。",
   "tags": ["标签1", "标签2", "标签3"]
@@ -808,6 +820,8 @@ ${text.slice(0, 15000)}
         content: stripQuestionNumber(parsed.content || ''),
         answer: parsed.answer || '',
         grade: parsed.grade || '',
+        semester: parsed.semester || '',
+        unit: parsed.unit || '',
         topic: parsed.topic || '',
         questionType: parsed.questionType || '',
         tags: Array.isArray(parsed.tags) ? parsed.tags : [],
@@ -844,6 +858,8 @@ ${text.slice(0, 30000)}
     "content": "题目的 LaTeX 格式（行间公式用 $$...$$，行内公式用 $...$），不要包含题号",
     "answer": "仅最终答案或算式，没有则空字符串",
     "grade": "年级，不确定则空字符串",
+    "semester": "上册或下册，不确定则空字符串",
+    "unit": "单元名称，不确定则空字符串",
     "topic": "知识板块，必须从以下选项中选择：数与代数、图形与几何、统计与概率、综合与实践、集合与逻辑、函数、三角函数、数列、不等式、平面向量、立体几何、解析几何、导数与微积分、排列组合、概率、统计、复数、算法初步。不确定则空字符串。",
     "questionType": "题目类型，从以下选项中选择：选择题、判断题、填空题、画图题、解决问题、计算题、证明题、解答题。不确定则空字符串。",
     "tags": ["标签1", "标签2"]
@@ -876,6 +892,8 @@ ${text.slice(0, 30000)}
         content: stripQuestionNumber(q.content || ''),
         answer: q.answer || '',
         grade: q.grade || '',
+        semester: q.semester || '',
+        unit: q.unit || '',
         topic: q.topic || '',
         questionType: q.questionType || '',
         difficulty: clampDifficulty(q.difficulty),
@@ -928,7 +946,7 @@ ${text.slice(0, 30000)}
  * OpenAI-compatible chat request (works for OpenAI, DeepSeek, Dashscope compatible-mode, etc.)
  * Image format: { type: "image_url", image_url: { url: "data:image/..." } }
  */
-async function openaiCompatibleChat(baseUrl, apiKey, model, prompt, imageDataUrl, maxTokens, isMultimodal) {
+export async function openaiCompatibleChat(baseUrl, apiKey, model, prompt, imageDataUrl, maxTokens, isMultimodal) {
   // Determine the chat endpoint
   let url
   if (isDashscope(baseUrl)) {
@@ -973,7 +991,7 @@ async function openaiCompatibleChat(baseUrl, apiKey, model, prompt, imageDataUrl
  * Image format: { image: "data:image/..." } inside content array
  * Response: { output: { text: "..." } } or { output: { choices: [{ message: { content: [{text: "..."}] } }] } }
  */
-async function dashscopeNativeChat(baseUrl, apiKey, model, prompt, imageDataUrl, maxTokens, isMultimodal) {
+export async function dashscopeNativeChat(baseUrl, apiKey, model, prompt, imageDataUrl, maxTokens, isMultimodal) {
   const messages = [{
     role: 'user',
     content: isMultimodal
@@ -1086,10 +1104,12 @@ export async function autoTag(content, config, grade = '') {
   const { baseUrl, apiKey, model } = config
   if (!baseUrl || !model) throw new Error('请先配置并测试文本生成 API')
 
+  const standardTags = getTagPromptHint(grade)
+
   let gradeConstraint = ''
   if (grade) {
     if (/四|4/.test(grade)) {
-      gradeConstraint = `\n重要约束：该题目属于${grade}，四年级学生未学习方程、分数运算、小数运算等初中内容。标签中不得出现"方程""代数""函数""不等式""分数运算""小数运算"等超出四年级知识范围的词语。四年级主要知识点：大数认识、三位数乘两位数、除数是两位数的除法、平行四边形和梯形、数学广角（鸡兔同笼用假设法/列表法，不用方程）、条形统计图等。`
+      gradeConstraint = `\n重要约束：该题目属于${grade}，四年级学生未学习方程、分数运算、小数运算等初中内容。标签中不得出现"方程""代数""函数""不等式""分数运算""小数运算"等超出四年级知识范围的词语。`
     } else if (/一|二|三|1|2|3/.test(grade) && /年级/.test(grade)) {
       gradeConstraint = `\n约束：该题目属于${grade}（小学低年级），标签应限于加减法、乘法口诀、认识图形、长度单位、人民币、时间等基础内容。`
     }
@@ -1097,9 +1117,10 @@ export async function autoTag(content, config, grade = '') {
 
   const prompt = `请为以下数学题生成标签。要求：
 1. 生成 2-5 个标签
-2. 标签要精确描述题目涉及的知识点、题型、方法等
-3. 只返回标签列表，用英文逗号分隔，不要其他内容
-4. 标签使用中文${gradeConstraint}
+2. 标签必须从以下标准标签库中选择，不要自行创造标签：
+${standardTags.join('、')}
+3. 如果标准标签库中没有完全匹配的，选择最接近的标准标签
+4. 只返回标签列表，用英文逗号分隔，不要其他内容${gradeConstraint}
 
 题目：${content}`
 
@@ -1118,5 +1139,7 @@ export async function autoTag(content, config, grade = '') {
     throw err
   }
 
-  return text.split(/[,，、]/).map(t => t.trim()).filter(Boolean)
+  // Parse and normalize tags
+  const rawTags = text.split(/[,，、]/).map(t => t.trim()).filter(Boolean)
+  return normalizeTags(rawTags)
 }

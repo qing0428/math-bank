@@ -35,8 +35,8 @@ router.post('/questions', (req, res) => {
   if (!q || !q.id) return res.status(400).json({ error: 'Missing question or id' })
   stmts.upsert.run({
     id: q.id, content: q.content || '', answer: q.answer || '',
-    solution: q.solution || '', grade: q.grade || '', topic: q.topic || '',
-    question_type: q.questionType || '', difficulty: q.difficulty ?? 3,
+    solution: q.solution || '', grade: q.grade || '', semester: q.semester || '', unit: q.unit || '',
+    topic: q.topic || '', question_type: q.questionType || '', difficulty: q.difficulty ?? 3,
     tags: JSON.stringify(q.tags || []), notes: q.notes || '',
     exam_name: q.examName || '', image_url: q.imageUrl || '',
     image_position: q.imagePosition || 'right',
@@ -52,8 +52,8 @@ router.put('/questions/:id', (req, res) => {
   const now = Date.now()
   stmts.upsert.run({
     id: req.params.id, content: q.content || '', answer: q.answer || '',
-    solution: q.solution || '', grade: q.grade || '', topic: q.topic || '',
-    question_type: q.questionType || '', difficulty: q.difficulty ?? 3,
+    solution: q.solution || '', grade: q.grade || '', semester: q.semester || '', unit: q.unit || '',
+    topic: q.topic || '', question_type: q.questionType || '', difficulty: q.difficulty ?? 3,
     tags: JSON.stringify(q.tags || []), notes: q.notes || '',
     exam_name: q.examName || '', image_url: q.imageUrl || '',
     image_position: q.imagePosition || 'right',

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import StarRating from './StarRating'
-import { GRADES, TOPICS, getQuestionTypesForGrade } from '../../store/questionStore'
+import { GRADES, SEMESTERS, TOPICS, getQuestionTypesForGrade, getUnitsForGrade } from '../../store/questionStore'
 import { generateSolution, autoTag } from '../../services/llmService'
+import { getTagPromptHint } from '../../utils/tagNormalize'
 import MixedContent from '../common/MixedContent'
 import ImageCropper from '../common/ImageCropper'
 
@@ -17,27 +18,12 @@ function stripForPreview(text) {
     .trim()
 }
 
-// Common preset tags — filtered by grade level
-const PRESET_TAGS_BY_GRADE = {
-  // 小学低年级（一至三年级）
-  primary_low: ['加法', '减法', '乘法', '除法', '口算', '应用题', '认识图形', '长度单位', '人民币', '时间', '选择题', '填空题', '计算'],
-  // 小学高年级（四至六年级）
-  primary_high: ['大数认识', '乘除法', '平行四边形', '梯形', '鸡兔同笼', '条形统计图', '植树问题', '数学广角', '运算律', '角的度量', '选择题', '填空题', '解决问题', '计算', '应用题'],
-  // 初中
-  middle: ['方程', '不等式', '函数', '几何', '三角形', '全等', '相似', '圆', '概率', '统计', '选择题', '填空题', '解答题', '证明', '计算', '数形结合'],
-  // 高中
-  high: ['函数', '三角函数', '数列', '不等式', '向量', '立体几何', '解析几何', '导数', '概率统计', '选择题', '填空题', '解答题', '证明', '数形结合', '分类讨论'],
-  // 默认
-  default: ['计算', '方程', '几何', '函数', '应用题', '证明', '选择题', '填空题', '解答题', '数形结合', '分类讨论', '综合'],
-}
-
+/**
+ * Get preset tags for a given grade from the standard tag library.
+ * Returns a curated subset relevant to the grade level.
+ */
 function getPresetTags(grade) {
-  if (!grade) return PRESET_TAGS_BY_GRADE.default
-  if (/^[一二三]年级/.test(grade)) return PRESET_TAGS_BY_GRADE.primary_low
-  if (/^[四五六]年级/.test(grade)) return PRESET_TAGS_BY_GRADE.primary_high
-  if (/七|八|九|初[一二三]/.test(grade)) return PRESET_TAGS_BY_GRADE.middle
-  if (/高[一二三]/.test(grade)) return PRESET_TAGS_BY_GRADE.high
-  return PRESET_TAGS_BY_GRADE.default
+  return getTagPromptHint(grade)
 }
 
 export default function EntryMiddle({ question, onChange, llmConfig, batchQuestions, selectedBatchIndex, onSelectBatchQuestion, onBatchAutoTag, batchImages = [] }) {
@@ -200,19 +186,57 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
         </div>
       )}
 
-      {/* Grade & Topic & Type */}
+      {/* Grade & Semester & Unit */}
       <div className="grid grid-cols-3 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">年级</label>
           <select
             value={question.grade || ''}
-            onChange={(e) => update('grade', e.target.value)}
+            onChange={(e) => {
+              const newGrade = e.target.value
+              // Reset semester and unit when grade changes
+              update('grade', newGrade)
+              if (newGrade !== question.grade) {
+                onChange?.({ ...question, grade: newGrade, semester: '', unit: '' })
+              }
+            }}
             className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500"
           >
             <option value="">选择年级</option>
             {GRADES.map(g => <option key={g} value={g}>{g}</option>)}
           </select>
         </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">上/下册</label>
+          <select
+            value={question.semester || ''}
+            onChange={(e) => {
+              const newSemester = e.target.value
+              onChange?.({ ...question, semester: newSemester, unit: '' })
+            }}
+            disabled={!question.grade}
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500 disabled:bg-gray-50 disabled:text-gray-400"
+          >
+            <option value="">选择册</option>
+            {SEMESTERS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">单元</label>
+          <select
+            value={question.unit || ''}
+            onChange={(e) => update('unit', e.target.value)}
+            disabled={!question.grade || !question.semester}
+            className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-primary-500 disabled:bg-gray-50 disabled:text-gray-400"
+          >
+            <option value="">选择单元</option>
+            {getUnitsForGrade(question.grade, question.semester).map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Topic & Type */}
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">知识板块</label>
           <select

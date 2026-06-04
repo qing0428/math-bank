@@ -9,6 +9,7 @@ export default function PaperSettings({
   onPaperTitleChange,
   onExport,
   selectedCount,
+  onAiCompose,
 }) {
   const [exporting, setExporting] = useState(false)
 
@@ -74,6 +75,16 @@ export default function PaperSettings({
         </div>
 
         <div className="flex-1" />
+
+        {/* AI Compose button */}
+        <button
+          onClick={onAiCompose}
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm bg-cta text-white
+            hover:bg-orange-600 cursor-pointer transition-colors"
+          title="AI 自动组卷"
+        >
+          🤖 AI 组卷
+        </button>
 
         {/* Export buttons */}
         <div className="flex items-center gap-2">

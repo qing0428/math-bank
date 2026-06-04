@@ -15,6 +15,8 @@ db.exec(`
     answer          TEXT NOT NULL DEFAULT '',
     solution        TEXT NOT NULL DEFAULT '',
     grade           TEXT NOT NULL DEFAULT '',
+    semester        TEXT NOT NULL DEFAULT '',
+    unit            TEXT NOT NULL DEFAULT '',
     topic           TEXT NOT NULL DEFAULT '',
     question_type   TEXT NOT NULL DEFAULT '',
     difficulty      INTEGER NOT NULL DEFAULT 3,
@@ -35,6 +37,9 @@ db.exec(`
 
 // Migration: add image_position column if missing (for existing databases)
 try { db.exec(`ALTER TABLE questions ADD COLUMN image_position TEXT NOT NULL DEFAULT 'right'`) } catch { /* column exists */ }
+// Migration: add semester and unit columns if missing
+try { db.exec(`ALTER TABLE questions ADD COLUMN semester TEXT NOT NULL DEFAULT ''`) } catch { /* column exists */ }
+try { db.exec(`ALTER TABLE questions ADD COLUMN unit TEXT NOT NULL DEFAULT ''`) } catch { /* column exists */ }
 
 // Field mapping: camelCase <-> snake_case
 function toDb(q) {
@@ -44,6 +49,8 @@ function toDb(q) {
     answer: q.answer || '',
     solution: q.solution || '',
     grade: q.grade || '',
+    semester: q.semester || '',
+    unit: q.unit || '',
     topic: q.topic || '',
     question_type: q.questionType || '',
     difficulty: q.difficulty ?? 3,
@@ -64,6 +71,8 @@ function fromDb(row) {
     answer: row.answer,
     solution: row.solution,
     grade: row.grade,
+    semester: row.semester || '',
+    unit: row.unit || '',
     topic: row.topic,
     questionType: row.question_type,
     difficulty: row.difficulty,
@@ -83,9 +92,9 @@ const stmts = {
   getById: db.prepare('SELECT * FROM questions WHERE id = ?'),
   upsert: db.prepare(`
     INSERT OR REPLACE INTO questions
-      (id, content, answer, solution, grade, topic, question_type, difficulty,
+      (id, content, answer, solution, grade, semester, unit, topic, question_type, difficulty,
        tags, notes, exam_name, image_url, image_position, created_at, updated_at)
-    VALUES (@id, @content, @answer, @solution, @grade, @topic, @question_type,
+    VALUES (@id, @content, @answer, @solution, @grade, @semester, @unit, @topic, @question_type,
        @difficulty, @tags, @notes, @exam_name, @image_url, @image_position, @created_at, @updated_at)
   `),
   delete: db.prepare('DELETE FROM questions WHERE id = ?'),

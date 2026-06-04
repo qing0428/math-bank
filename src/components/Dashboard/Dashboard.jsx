@@ -1,11 +1,13 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import StatsCard from './StatsCard'
 import TagCloud from './TagCloud'
 import { getStats, exportToJSON, importFromJSON } from '../../store/questionStore'
+import { normalizeTags } from '../../utils/tagNormalize'
 
 export default function Dashboard({ questions, setQuestions }) {
   const stats = getStats(questions)
   const fileInputRef = useRef(null)
+  const [cleaning, setCleaning] = useState(false)
 
   const handleExport = () => {
     if (questions.length === 0) {
@@ -13,6 +15,37 @@ export default function Dashboard({ questions, setQuestions }) {
       return
     }
     exportToJSON(questions)
+  }
+
+  const handleCleanTags = () => {
+    if (questions.length === 0) {
+      alert('题库为空，无需清洗')
+      return
+    }
+
+    setCleaning(true)
+
+    // Find questions whose tags would change after normalization
+    let changedCount = 0
+    const updated = questions.map(q => {
+      const normalized = normalizeTags(q.tags)
+      const isChanged = JSON.stringify(normalized) !== JSON.stringify(q.tags)
+      if (isChanged) changedCount++
+      return isChanged ? { ...q, tags: normalized, updatedAt: Date.now() } : q
+    })
+
+    if (changedCount === 0) {
+      alert('✅ 所有标签已是标准格式，无需清洗')
+      setCleaning(false)
+      return
+    }
+
+    if (confirm(`发现 ${changedCount} 道题目的标签需要标准化。是否执行清洗？`)) {
+      setQuestions(updated)
+      alert(`✅ 已清洗 ${changedCount} 道题目的标签`)
+    }
+
+    setCleaning(false)
   }
 
   const handleImport = async (e) => {
@@ -52,6 +85,13 @@ export default function Dashboard({ questions, setQuestions }) {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={handleCleanTags}
+            disabled={cleaning}
+            className="px-4 py-2 rounded-lg bg-white border border-border text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+          >
+            {cleaning ? '⏳ 清洗中...' : '🏷️ 标签清洗'}
+          </button>
+          <button
             onClick={handleExport}
             className="px-4 py-2 rounded-lg bg-white border border-border text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer shadow-sm"
           >
@@ -88,6 +128,50 @@ export default function Dashboard({ questions, setQuestions }) {
         <h3 className="font-heading text-lg font-semibold text-text mb-4">热门标签</h3>
         <TagCloud tags={stats.topTags} />
       </div>
+
+      {/* Semester & Unit Stats */}
+      {(stats.topSemesters.length > 0 || stats.topUnits.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+          {stats.topSemesters.length > 0 && (
+            <div className="bg-white rounded-xl border border-border shadow-sm p-6">
+              <h3 className="font-heading text-lg font-semibold text-text mb-4">📖 按册分布</h3>
+              <div className="space-y-2">
+                {stats.topSemesters.map(({ name, count }) => (
+                  <div key={name} className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 w-32 truncate">{name}</span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2">
+                      <div
+                        className="bg-primary-400 h-2 rounded-full"
+                        style={{ width: `${Math.min(100, (count / stats.total) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-400 w-8 text-right">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {stats.topUnits.length > 0 && (
+            <div className="bg-white rounded-xl border border-border shadow-sm p-6">
+              <h3 className="font-heading text-lg font-semibold text-text mb-4">📄 热门单元</h3>
+              <div className="space-y-2">
+                {stats.topUnits.map(({ name, count }) => (
+                  <div key={name} className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 w-32 truncate">{name}</span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2">
+                      <div
+                        className="bg-amber-400 h-2 rounded-full"
+                        style={{ width: `${Math.min(100, (count / stats.total) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-400 w-8 text-right">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

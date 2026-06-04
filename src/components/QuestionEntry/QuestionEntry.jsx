@@ -19,6 +19,8 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
       content: result.content || prev.content,
       answer: result.answer || prev.answer,
       grade: prev.grade || result.grade || '',
+      semester: prev.semester || result.semester || '',
+      unit: prev.unit || result.unit || '',
       topic: prev.topic || result.topic || '',
       questionType: prev.questionType || result.questionType || '',
       difficulty: result.difficulty || prev.difficulty,
@@ -42,6 +44,8 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
         content: r.content,
         answer: r.answer,
         grade: r.grade,
+        semester: r.semester,
+        unit: r.unit,
         topic: r.topic,
         questionType: r.questionType,
         difficulty: r.difficulty,
@@ -65,6 +69,8 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
       setBatchQuestions(prev => prev.map(q => ({
         ...q,
         grade: updated.grade,
+        semester: '',
+        unit: '',
         questionType: newTypes.includes(q.questionType) ? q.questionType : '',
       })))
     }

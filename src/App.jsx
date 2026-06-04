@@ -7,6 +7,7 @@ import Settings from './components/Settings/Settings'
 import PaperComposition from './components/Paper/PaperComposition'
 import { loadLLMConfig } from './store/llmConfigStore'
 import { fetchQuestions, migrateQuestions, batchUpsertQuestions, createQuestionApi, updateQuestionApi, deleteQuestionApi } from './services/questionApi'
+import { normalizeTags } from './utils/tagNormalize'
 
 const pages = {
   dashboard: Dashboard,
@@ -60,7 +61,13 @@ function App() {
   }, [])
 
   // Sync questions to server — diff old vs new, or batch for large imports
-  const saveQuestions = useCallback(async (newQuestions) => {
+  const saveQuestions = useCallback(async (rawQuestions) => {
+    // Normalize tags on all questions before saving
+    const newQuestions = rawQuestions.map(q => ({
+      ...q,
+      tags: normalizeTags(q.tags),
+    }))
+
     const oldIds = new Set(questions.map(q => q.id))
     const newIds = new Set(newQuestions.map(q => q.id))
 

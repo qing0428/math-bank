@@ -22,6 +22,8 @@ export default function Search({ questions, setQuestions }) {
   const results = useMemo(() => {
     return questions.filter(q => {
       if (filters.grade && q.grade !== filters.grade) return false
+      if (filters.semester && q.semester !== filters.semester) return false
+      if (filters.unit && q.unit !== filters.unit) return false
       if (filters.topic && q.topic !== filters.topic) return false
       if (filters.difficulty && q.difficulty !== filters.difficulty) return false
       if (filters.tag && !(q.tags || []).includes(filters.tag)) return false

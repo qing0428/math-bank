@@ -80,10 +80,10 @@ export default function EntryRight({ question, onSave }) {
       </div>
 
       {/* Meta info */}
-      {(question.examName || question.grade || question.topic || question.difficulty > 0 || (question.tags && question.tags.length > 0)) && (
+      {(question.examName || question.grade || question.semester || question.unit || question.topic || question.difficulty > 0 || (question.tags && question.tags.length > 0)) && (
         <div className="bg-white rounded-lg border border-border p-3 text-xs text-gray-500 space-y-1">
           {question.examName && <p>📝 试卷：{question.examName}</p>}
-          {question.grade && <p>📚 年级：{question.grade}</p>}
+          {question.grade && <p>📚 年级：{question.grade}{question.semester ? ` ${question.semester}` : ''}{question.unit ? ` · ${question.unit}` : ''}</p>}
           {question.topic && <p>📂 板块：{question.topic}</p>}
           {question.difficulty > 0 && (
             <p>⭐ 难度：<StarRating value={question.difficulty} size="sm" /></p>
