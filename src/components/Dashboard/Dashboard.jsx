@@ -3,11 +3,13 @@ import StatsCard from './StatsCard'
 import TagCloud from './TagCloud'
 import { getStats, exportToJSON, importFromJSON } from '../../store/questionStore'
 import { normalizeTags } from '../../utils/tagNormalize'
+import { migrateImages } from '../../services/questionApi'
 
 export default function Dashboard({ questions, setQuestions }) {
   const stats = getStats(questions)
   const fileInputRef = useRef(null)
   const [cleaning, setCleaning] = useState(false)
+  const [migrating, setMigrating] = useState(false)
 
   const handleExport = () => {
     if (questions.length === 0) {
@@ -48,6 +50,33 @@ export default function Dashboard({ questions, setQuestions }) {
     setCleaning(false)
   }
 
+  const handleMigrateImages = async () => {
+    if (questions.length === 0) {
+      alert('题库为空，无需迁移')
+      return
+    }
+
+    const base64Count = questions.filter(q => q.imageUrl?.startsWith('data:')).length
+    if (base64Count === 0) {
+      alert('✅ 所有图片已是文件存储格式，无需迁移')
+      return
+    }
+
+    if (confirm(`发现 ${base64Count} 张 base64 图片需要迁移到文件存储。是否执行？`)) {
+      setMigrating(true)
+      try {
+        const result = await migrateImages()
+        alert(`✅ 迁移完成！成功 ${result.migrated} 张，失败 ${result.failed} 张`)
+        // Reload questions to get updated URLs
+        window.location.reload()
+      } catch (err) {
+        alert('迁移失败：' + err.message)
+      } finally {
+        setMigrating(false)
+      }
+    }
+  }
+
   const handleImport = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -84,6 +113,13 @@ export default function Dashboard({ questions, setQuestions }) {
           <p className="text-gray-500 text-sm mt-1">题库统计信息一览</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={handleMigrateImages}
+            disabled={migrating}
+            className="px-4 py-2 rounded-lg bg-white border border-border text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors cursor-pointer shadow-sm disabled:opacity-50"
+          >
+            {migrating ? '⏳ 迁移中...' : '🖼️ 图片迁移'}
+          </button>
           <button
             onClick={handleCleanTags}
             disabled={cleaning}

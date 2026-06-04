@@ -4,6 +4,7 @@ import EntryMiddle from './EntryMiddle'
 import EntryRight from './EntryRight'
 import { createQuestion, getQuestionTypesForGrade } from '../../store/questionStore'
 import { autoTag } from '../../services/llmService'
+import { uploadImage } from '../../services/questionApi'
 
 export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
   const [question, setQuestion] = useState(() => createQuestion())
@@ -13,7 +14,17 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
   const [batchImages, setBatchImages] = useState([])
   const [examName, setExamName] = useState('')
 
-  const handleImageRecognized = (result) => {
+  const handleImageRecognized = async (result) => {
+    // Upload image to server if it's a base64 data URL
+    let imageUrl = result.imageUrl || ''
+    if (imageUrl && imageUrl.startsWith('data:')) {
+      try {
+        imageUrl = await uploadImage(imageUrl)
+      } catch (err) {
+        console.warn('Image upload failed, keeping base64:', err.message)
+      }
+    }
+
     setQuestion(prev => ({
       ...prev,
       content: result.content || prev.content,
@@ -27,19 +38,36 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
       tags: result.tags?.length
         ? [...new Set([...(prev.tags || []), ...result.tags])]
         : prev.tags,
-      imageUrl: result.imageUrl || prev.imageUrl,
+      imageUrl,
     }))
   }
 
-  const handleBatchRecognized = (results) => {
-    // Collect unique source images from batch results
-    const uniqueImages = [...new Set(results.map(r => r.imageUrl).filter(Boolean))]
+  const handleBatchRecognized = async (results) => {
+    // Upload batch images to server, deduplicate by source image
+    const imageUploadMap = {} // base64 → server URL
+    for (const r of results) {
+      if (r.imageUrl && r.imageUrl.startsWith('data:') && !imageUploadMap[r.imageUrl]) {
+        try {
+          imageUploadMap[r.imageUrl] = await uploadImage(r.imageUrl)
+        } catch (err) {
+          console.warn('Batch image upload failed:', err.message)
+          imageUploadMap[r.imageUrl] = r.imageUrl // fallback to base64
+        }
+      }
+    }
+
+    // Collect unique source images (now server URLs)
+    const uniqueImages = [...new Set(results.map(r => {
+      if (!r.imageUrl) return ''
+      return imageUploadMap[r.imageUrl] || r.imageUrl
+    }).filter(Boolean))]
     setBatchImages(uniqueImages)
 
     // Create question objects from batch results
     const batchList = results.map((r, i) => {
       // Only attach image if question content references a diagram/table
       const needsImage = /如图|如表|图[1-9一二三四五六七八九]|表[1-9一二三四五六七八九]|看图|图示|图表/.test(r.content || '')
+      const serverUrl = r.imageUrl ? (imageUploadMap[r.imageUrl] || r.imageUrl) : ''
       return createQuestion({
         content: r.content,
         answer: r.answer,
@@ -50,7 +78,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
         questionType: r.questionType,
         difficulty: r.difficulty,
         tags: r.tags,
-        imageUrl: needsImage ? (r.imageUrl || '') : '',
+        imageUrl: needsImage ? serverUrl : '',
         examName: examName || '',
       })
     })

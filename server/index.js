@@ -2,6 +2,7 @@ const express = require('express')
 const path = require('path')
 const cors = require('cors')
 const questionsRouter = require('./routes/questions')
+const imagesRouter = require('./routes/images')
 
 const app = express()
 app.use(cors())
@@ -9,6 +10,7 @@ app.use(express.json({ limit: '50mb' }))
 
 // API routes
 app.use('/api', questionsRouter)
+app.use('/api', imagesRouter)
 
 // Serve frontend static files
 const distPath = path.join(__dirname, 'dist')

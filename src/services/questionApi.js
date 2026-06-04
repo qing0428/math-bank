@@ -57,3 +57,32 @@ export async function migrateQuestions(questions) {
   if (!res.ok) throw new Error(`Migration failed: ${res.status}`)
   return await res.json()
 }
+
+/**
+ * Upload a base64 data URL to the server, get back a file URL.
+ * @param {string} dataUrl - Base64 data URL (data:image/jpeg;base64,...)
+ * @returns {Promise<string>} Server URL like /api/images/xxx.jpg
+ */
+export async function uploadImage(dataUrl) {
+  const res = await fetch(`${API_BASE}/images/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataUrl }),
+  })
+  if (!res.ok) throw new Error(`Image upload failed: ${res.status}`)
+  const data = await res.json()
+  return data.url
+}
+
+/**
+ * Migrate all base64 images in the database to files.
+ * @returns {Promise<{migrated: number, failed: number, total: number}>}
+ */
+export async function migrateImages() {
+  const res = await fetch(`${API_BASE}/images/migrate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  })
+  if (!res.ok) throw new Error(`Image migration failed: ${res.status}`)
+  return await res.json()
+}

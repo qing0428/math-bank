@@ -9,5 +9,6 @@ services:
       - ${DATA_DIR:-./data}:/data
     environment:
       - DB_PATH=/data/mathbank.db
+      - IMAGES_DIR=/data/images
       - PORT=3001
     restart: unless-stopped

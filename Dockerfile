@@ -23,5 +23,8 @@ COPY server/ .
 # Copy built frontend into server/dist
 COPY --from=build /app/dist ./dist
 
+# Create directories for data persistence
+RUN mkdir -p /data/images
+
 EXPOSE 3001
 CMD ["node", "index.js"]

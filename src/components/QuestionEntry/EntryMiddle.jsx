@@ -2,6 +2,7 @@ import { useState } from 'react'
 import StarRating from './StarRating'
 import { GRADES, SEMESTERS, TOPICS, getQuestionTypesForGrade, getUnitsForGrade } from '../../store/questionStore'
 import { generateSolution, autoTag } from '../../services/llmService'
+import { uploadImage } from '../../services/questionApi'
 import { getTagPromptHint } from '../../utils/tagNormalize'
 import MixedContent from '../common/MixedContent'
 import ImageCropper from '../common/ImageCropper'
@@ -469,11 +470,20 @@ export default function EntryMiddle({ question, onChange, llmConfig, batchQuesti
             accept="image/*"
             className="hidden"
             id="attach-image-input"
-            onChange={(e) => {
+            onChange={async (e) => {
               const file = e.target.files?.[0]
               if (!file) return
               const reader = new FileReader()
-              reader.onload = () => update('imageUrl', reader.result)
+              reader.onload = async () => {
+                const dataUrl = reader.result
+                // Upload to server, fallback to base64
+                try {
+                  const serverUrl = await uploadImage(dataUrl)
+                  update('imageUrl', serverUrl)
+                } catch {
+                  update('imageUrl', dataUrl)
+                }
+              }
               reader.readAsDataURL(file)
               e.target.value = ''
             }}
