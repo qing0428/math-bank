@@ -3,6 +3,19 @@ import 'katex/dist/katex.min.css'
 import MixedContent from '../common/MixedContent'
 import StarRating from '../QuestionEntry/StarRating'
 import { GRADES, TOPICS, getQuestionTypesForGrade } from '../../store/questionStore'
+import { findSimilarQuestions } from '../../services/compositionService'
+
+function stripForPreview(text) {
+  if (!text) return ''
+  return text
+    .replace(/\$\$[\s\S]*?\$\$/g, '…')
+    .replace(/\$[^$]*\$/g, '…')
+    .replace(/\\[a-zA-Z]+\{?[^}]*\}?/g, '')
+    .replace(/[{}\\^_]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80)
+}
 
 function useIsTallImage(src) {
   const [tall, setTall] = useState(false)
@@ -43,9 +56,31 @@ function QuestionContent({ q }) {
   )
 }
 
-export default function SearchResults({ results, onEdit, onDelete }) {
+export default function SearchResults({ results, onEdit, onDelete, allQuestions, llmConfig }) {
   const [detailQuestion, setDetailQuestion] = useState(null)
   const [editingQuestion, setEditingQuestion] = useState(null)
+  const [similarTarget, setSimilarTarget] = useState(null)
+  const [similarResults, setSimilarResults] = useState([])
+  const [similarLoading, setSimilarLoading] = useState(false)
+  const [similarError, setSimilarError] = useState('')
+
+  const textConfigured = llmConfig?.text?.connected && llmConfig?.text?.model
+
+  const handleFindSimilar = async (question) => {
+    setSimilarTarget(question)
+    setSimilarResults([])
+    setSimilarError('')
+    setSimilarLoading(true)
+
+    try {
+      const results = await findSimilarQuestions(question, allQuestions || [], llmConfig?.text || {}, 5)
+      setSimilarResults(results)
+    } catch (err) {
+      setSimilarError(err.message || '查找失败')
+    } finally {
+      setSimilarLoading(false)
+    }
+  }
 
   if (results.length === 0) {
     return (
@@ -90,6 +125,15 @@ export default function SearchResults({ results, onEdit, onDelete }) {
 
             {/* Actions */}
             <div className="flex gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+              {textConfigured && (
+                <button
+                  onClick={() => handleFindSimilar(q)}
+                  className="px-3 py-1.5 rounded-lg bg-purple-50 text-purple-600 text-xs font-medium hover:bg-purple-100 transition-colors cursor-pointer"
+                  title="查找相似题目"
+                >
+                  🔍 相似
+                </button>
+              )}
               <button
                 onClick={() => setEditingQuestion({ ...q })}
                 className="px-3 py-1.5 rounded-lg bg-primary-50 text-primary-600 text-xs font-medium hover:bg-primary-100 transition-colors cursor-pointer"
@@ -212,6 +256,79 @@ export default function SearchResults({ results, onEdit, onDelete }) {
                 className="px-4 py-2 rounded-lg bg-primary-500 text-white text-sm font-medium hover:bg-primary-600 cursor-pointer"
               >
                 编辑
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Similar Questions Dialog */}
+      {similarTarget && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setSimilarTarget(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
+              <h3 className="text-sm font-semibold text-text">🔍 相似题目</h3>
+              <button onClick={() => setSimilarTarget(null)} className="text-gray-400 hover:text-gray-600 text-lg cursor-pointer">✕</button>
+            </div>
+
+            {/* Target question summary */}
+            <div className="px-5 py-3 bg-gray-50 border-b border-border flex-shrink-0">
+              <p className="text-xs text-gray-400 mb-1">目标题目</p>
+              <p className="text-sm text-gray-700 line-clamp-2">{stripForPreview(similarTarget.content)}</p>
+              <div className="flex gap-2 mt-1">
+                {similarTarget.grade && <span className="text-xs text-blue-600">{similarTarget.grade}</span>}
+                {similarTarget.topic && <span className="text-xs text-green-600">{similarTarget.topic}</span>}
+                {similarTarget.difficulty > 0 && <span className="text-xs text-amber-600">难度{similarTarget.difficulty}</span>}
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {similarLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin text-3xl mb-2">⏳</div>
+                  <p className="text-sm text-gray-500">AI 正在查找相似题目...</p>
+                </div>
+              ) : similarError ? (
+                <div className="bg-red-50 rounded-lg p-3 border border-red-200 text-red-600 text-sm">
+                  ❌ {similarError}
+                </div>
+              ) : similarResults.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 text-sm">
+                  未找到相似题目
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-gray-400 mb-2">找到 {similarResults.length} 道相似题目</p>
+                  {similarResults.map((sq, i) => (
+                    <div key={sq.id} className="bg-gray-50 rounded-lg border border-border p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-400 mb-1">#{i + 1}</p>
+                          <div className="text-sm text-gray-700 mb-2">
+                            <MixedContent content={sq.content || ''} />
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {sq.grade && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">{sq.grade}</span>}
+                            {sq.topic && <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600">{sq.topic}</span>}
+                            {sq.difficulty > 0 && <StarRating value={sq.difficulty} size="sm" />}
+                            {sq.tags?.slice(0, 2).map(tag => (
+                              <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">{tag}</span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-border flex justify-end flex-shrink-0">
+              <button
+                onClick={() => setSimilarTarget(null)}
+                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 text-sm font-medium hover:bg-gray-200 cursor-pointer"
+              >
+                关闭
               </button>
             </div>
           </div>

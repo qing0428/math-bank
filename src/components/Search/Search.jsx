@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import SearchFilters from './SearchFilters'
 import SearchResults from './SearchResults'
 
-export default function Search({ questions, setQuestions }) {
+export default function Search({ questions, setQuestions, llmConfig }) {
   const [filters, setFilters] = useState({
     grade: '',
     topic: '',
@@ -58,7 +58,7 @@ export default function Search({ questions, setQuestions }) {
       <SearchFilters filters={filters} onChange={setFilters} allTags={allTags} />
 
       <div className="mt-4">
-        <SearchResults results={results} onEdit={handleEdit} onDelete={handleDelete} />
+        <SearchResults results={results} onEdit={handleEdit} onDelete={handleDelete} allQuestions={questions} llmConfig={llmConfig} />
       </div>
     </div>
   )

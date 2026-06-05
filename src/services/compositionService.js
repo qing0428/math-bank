@@ -9,6 +9,7 @@
  */
 
 import { openaiCompatibleChat, isDashscope, isDashscopeNative, dashscopeNativeChat } from './llmService'
+import { normalizeTags } from '../utils/tagNormalize'
 
 // ─── 规则组卷 ──────────────────────────────────────────────
 
@@ -314,4 +315,138 @@ function formatDifficultyRatio(ratio) {
   if (ratio.medium) parts.push(`中等${ratio.medium}`)
   if (ratio.hard) parts.push(`困难${ratio.hard}`)
   return parts.join(' : ') || '均匀分布'
+}
+
+// ─── 相似题查找 ────────────────────────────────────────────
+
+/**
+ * Find similar questions from the bank using LLM.
+ *
+ * @param {Object} targetQuestion - The question to find similar ones for
+ * @param {Array} allQuestions - Full question bank
+ * @param {Object} llmConfig - LLM API config
+ * @param {number} count - How many similar questions to return (default 5)
+ * @returns {Promise<Array>} Array of similar questions with similarity scores
+ */
+export async function findSimilarQuestions(targetQuestion, allQuestions, llmConfig, count = 5) {
+  const { baseUrl, apiKey, model } = llmConfig
+  if (!baseUrl || !model) throw new Error('请先配置文本生成 API')
+
+  // Pre-filter: same grade, exclude self
+  let candidates = allQuestions.filter(q => {
+    if (q.id === targetQuestion.id) return false
+    if (targetQuestion.grade && q.grade === targetQuestion.grade) return true
+    // Also include same topic or shared tags
+    if (targetQuestion.topic && q.topic === targetQuestion.topic) return true
+    if (targetQuestion.tags?.some(t => (q.tags || []).includes(t))) return true
+    return false
+  })
+
+  if (candidates.length === 0) {
+    // Fallback: include all questions
+    candidates = allQuestions.filter(q => q.id !== targetQuestion.id)
+  }
+
+  if (candidates.length === 0) {
+    return []
+  }
+
+  // Limit candidate pool size for LLM context
+  const MAX_CANDIDATES = 50
+  if (candidates.length > MAX_CANDIDATES) {
+    // Prioritize: same grade > same topic > shared tags
+    candidates.sort((a, b) => {
+      const scoreA = (a.grade === targetQuestion.grade ? 10 : 0)
+        + (a.topic === targetQuestion.topic ? 5 : 0)
+        + (targetQuestion.tags?.filter(t => (a.tags || []).includes(t)).length || 0)
+      const scoreB = (b.grade === targetQuestion.grade ? 10 : 0)
+        + (b.topic === targetQuestion.topic ? 5 : 0)
+        + (targetQuestion.tags?.filter(t => (b.tags || []).includes(t)).length || 0)
+      return scoreB - scoreA
+    })
+    candidates = candidates.slice(0, MAX_CANDIDATES)
+  }
+
+  // Build candidate list for LLM
+  const candidateList = candidates.map((q, i) => {
+    const tags = (q.tags || []).join('、')
+    return `[${i + 1}] 难度${q.difficulty || 3} | ${q.questionType || ''} | ${q.topic || ''} | ${tags} | ${stripForAI(q.content)}`
+  }).join('\n')
+
+  const targetTags = (targetQuestion.tags || []).join('、')
+  const prompt = `你是一位数学教师，需要从题库中找出与目标题目最相似的题目。
+
+目标题目：
+- 年级：${targetQuestion.grade || '未知'}
+- 题型：${targetQuestion.questionType || '未知'}
+- 板块：${targetQuestion.topic || '未知'}
+- 标签：${targetTags || '无'}
+- 难度：${targetQuestion.difficulty || 3}
+- 内容：${stripForAI(targetQuestion.content)}
+
+题库候选：
+${candidateList}
+
+请选出与目标题目最相似的 ${Math.min(count, candidates.length)} 道题，相似标准：
+1. 考查相同或相近的知识点
+2. 题型和解题方法类似
+3. 难度接近
+
+只返回选中的题目编号，用逗号分隔，如：1,3,5,7,9
+不要其他解释。`
+
+  let text = ''
+  try {
+    if (isDashscopeNative(baseUrl)) {
+      text = await dashscopeNativeChat(baseUrl, apiKey, model, prompt, null, 200, false)
+    } else {
+      text = await openaiCompatibleChat(baseUrl, apiKey, model, prompt, null, 200, false)
+    }
+  } catch (err) {
+    console.warn('LLM similar search failed, falling back to tag matching:', err.message)
+    return fallbackSimilar(targetQuestion, allQuestions, count)
+  }
+
+  // Parse response
+  const numbers = text.match(/\d+/g)
+  if (!numbers || numbers.length === 0) {
+    return fallbackSimilar(targetQuestion, allQuestions, count)
+  }
+
+  const results = []
+  const usedIndices = new Set()
+  for (const numStr of numbers) {
+    const idx = parseInt(numStr, 10) - 1
+    if (idx >= 0 && idx < candidates.length && !usedIndices.has(idx)) {
+      results.push(candidates[idx])
+      usedIndices.add(idx)
+    }
+    if (results.length >= count) break
+  }
+
+  return results.length > 0 ? results : fallbackSimilar(targetQuestion, allQuestions, count)
+}
+
+/**
+ * Fallback: find similar questions by tag/topic matching (no LLM).
+ */
+function fallbackSimilar(target, allQuestions, count) {
+  const scored = allQuestions
+    .filter(q => q.id !== target.id)
+    .map(q => {
+      let score = 0
+      if (q.grade === target.grade) score += 3
+      if (q.topic === target.topic) score += 5
+      if (q.questionType === target.questionType) score += 2
+      const diff = Math.abs((q.difficulty || 3) - (target.difficulty || 3))
+      score += Math.max(0, 3 - diff)
+      const sharedTags = target.tags?.filter(t => (q.tags || []).includes(t)).length || 0
+      score += sharedTags * 2
+      return { question: q, score }
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, count)
+    .map(s => s.question)
+
+  return scored
 }
