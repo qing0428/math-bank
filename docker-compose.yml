@@ -19,4 +19,9 @@ services:
       # - VISION_API_BASE=https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation
       # - VISION_API_KEY=your_api_key
       # - VISION_MODEL=qwen-vl-max
+    # ARM 设备内存限制
+    mem_limit: 256m
+    memswap_limit: 256m
+    # 限制 CPU 使用
+    cpus: 1.0
     restart: unless-stopped
