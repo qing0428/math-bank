@@ -21,7 +21,7 @@ function parseIntent(text) {
   const trimmed = (text || '').trim()
 
   // 组卷意图
-  const composeMatch = trimmed.match(/(?:帮我|请)?(?:出|组)(?:一份|一套|个)?(.+?)(?:试卷|测试|练习|卷子)(?:，|,|\s)*(\d+)?\s*道题?/)
+  const composeMatch = trimmed.match(/(?:帮我|请)?(?:出|组)(?:一份|一套|一个|个)?(.+?)(?:试卷|测试|练习|卷子)(?:(?:，|,|\s)*(\d+)?\s*道题?)?$/)
   if (composeMatch) {
     return {
       intent: 'compose',
@@ -53,6 +53,11 @@ function parseIntent(text) {
     else if (d === '五' || d === '5' || d === '难') difficulty = 5
     return { intent: 'update_difficulty', params: { difficulty } }
   }
+
+  // 也支持简单格式："难" "中等" "简单"
+  if (/^(简单|容易|基础)$/.test(trimmed)) return { intent: 'update_difficulty', params: { difficulty: 1 } }
+  if (/^中等$/.test(trimmed)) return { intent: 'update_difficulty', params: { difficulty: 3 } }
+  if (/^(难|困难|较难)$/.test(trimmed)) return { intent: 'update_difficulty', params: { difficulty: 5 } }
 
   // 帮助
   if (/帮助|help|怎么用|功能/.test(trimmed)) {
