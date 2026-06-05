@@ -39,6 +39,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
         ? [...new Set([...(prev.tags || []), ...result.tags])]
         : prev.tags,
       imageUrl,
+      hasHandwriting: result.hasHandwriting || prev.hasHandwriting || false,
     }))
   }
 
@@ -80,6 +81,7 @@ export default function QuestionEntry({ questions, setQuestions, llmConfig }) {
         tags: r.tags,
         imageUrl: needsImage ? serverUrl : '',
         examName: examName || '',
+        hasHandwriting: r.hasHandwriting || false,
       })
     })
     setBatchQuestions(batchList)

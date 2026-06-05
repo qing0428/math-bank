@@ -116,6 +116,7 @@ export default function SearchResults({ results, onEdit, onDelete, allQuestions,
                 {q.grade && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">📚 {q.grade}</span>}
                 {q.topic && <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600">📂 {q.topic}</span>}
                 {q.difficulty > 0 && <StarRating value={q.difficulty} size="sm" />}
+                {q.hasHandwriting && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-50 text-orange-600">✏️ 手写</span>}
                 {q.tags?.slice(0, 3).map(tag => (
                   <span key={tag} className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-600">🏷️ {tag}</span>
                 ))}
@@ -223,6 +224,7 @@ export default function SearchResults({ results, onEdit, onDelete, allQuestions,
                 {detailQuestion.topic && <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 text-green-600">📂 {detailQuestion.topic}</span>}
                 {detailQuestion.questionType && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">📝 {detailQuestion.questionType}</span>}
                 {detailQuestion.difficulty > 0 && <StarRating value={detailQuestion.difficulty} size="sm" />}
+                {detailQuestion.hasHandwriting && <span className="text-xs px-2 py-0.5 rounded-full bg-orange-50 text-orange-600">✏️ 含手写内容</span>}
               </div>
 
               {/* Tags */}

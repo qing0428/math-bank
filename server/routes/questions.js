@@ -40,6 +40,7 @@ router.post('/questions', (req, res) => {
     tags: JSON.stringify(q.tags || []), notes: q.notes || '',
     exam_name: q.examName || '', image_url: q.imageUrl || '',
     image_position: q.imagePosition || 'right',
+    has_handwriting: q.hasHandwriting ? 1 : 0,
     created_at: q.createdAt || Date.now(), updated_at: q.updatedAt || Date.now(),
   })
   res.json({ question: q })

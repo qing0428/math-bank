@@ -602,9 +602,15 @@ export async function recognizeBatchImage(files, config, onProgress) {
     "topic": "知识板块，必须从以下选项中选择：数与代数、图形与几何、统计与概率、综合与实践、集合与逻辑、函数、三角函数、数列、不等式、平面向量、立体几何、解析几何、导数与微积分、排列组合、概率、统计、复数、算法初步。不确定则空字符串。",
     "questionType": "题目类型，从以下选项中选择：选择题、判断题、填空题、画图题、解决问题、计算题、证明题、解答题。不确定则空字符串。",
     "difficulty": "题目难度，整数1-5（1=基础计算 2=简单应用 3=综合运用 4=较难综合 5=竞赛难度）",
-    "tags": ["标签1", "标签2"]
+    "tags": ["标签1", "标签2"],
+    "bbox": { "x": 0.0, "y": 0.0, "w": 1.0, "h": 0.15 },
+    "hasHandwriting": false
   }
 ]
+
+字段说明：
+- bbox: 题目在图片中的位置，用百分比小数表示（0.0~1.0）。x=左上角水平位置，y=左上角垂直位置，w=宽度占比，h=高度占比。请尽量精确估算。
+- hasHandwriting: 题目区域是否包含手写内容（批注、做题痕迹等）。true=有手写，false=纯印刷。
 
 规则：
 1. 按题目在试卷中出现的顺序排列
@@ -614,7 +620,8 @@ export async function recognizeBatchImage(files, config, onProgress) {
 5. 如果是选择题，必须完整列出所有选项（A. B. C. D.），每个选项内容完整不能省略。选项中的图形或图片直接忽略，用文字描述选项内容
 6. answer 只包含最终结果，不含解题步骤
 7. difficulty 根据知识深度、计算量、思维复杂度综合评定
-8. 只返回 JSON 数组，不要任何解释`
+8. bbox 必须覆盖题目完整区域（包括题干、选项、图形），不要遗漏
+9. 只返回 JSON 数组，不要任何解释`
 
     let text = ''
 
@@ -711,6 +718,8 @@ function parseQuestionsFromText(text) {
         questionType: q.questionType || '',
         difficulty: clampDifficulty(q.difficulty),
         tags: Array.isArray(q.tags) ? q.tags : [],
+        bbox: q.bbox || null,
+        hasHandwriting: q.hasHandwriting || false,
       }))
     }
     if (Array.isArray(parsed) && parsed.length === 0) {
@@ -898,6 +907,8 @@ ${text.slice(0, 30000)}
         questionType: q.questionType || '',
         difficulty: clampDifficulty(q.difficulty),
         tags: Array.isArray(q.tags) ? q.tags : [],
+        bbox: q.bbox || null,
+        hasHandwriting: q.hasHandwriting || false,
       }))
     }
     if (Array.isArray(parsed) && parsed.length === 0) {

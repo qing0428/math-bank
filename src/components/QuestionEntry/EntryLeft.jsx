@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { recognizeImage, recognizeBatchImage, recognizeText, recognizeBatchText } from '../../services/llmService'
+import { cropImage } from '../../utils/imageCrop'
 import ImageCropper from '../common/ImageCropper'
 
 // pdfjs-dist setup
@@ -88,7 +89,14 @@ export default function EntryLeft({ onImageRecognized, onBatchRecognized, llmCon
         const result = await recognizeImage(file, llmConfig.vision, (text) => {
           setProgressText(text)
         })
-        onImageRecognized?.({ ...result, imageUrl: dataUrl })
+        // Crop image if bbox is available
+        let imageUrl = dataUrl
+        if (result.bbox) {
+          try {
+            imageUrl = await cropImage(dataUrl, result.bbox)
+          } catch { /* keep original */ }
+        }
+        onImageRecognized?.({ ...result, imageUrl })
         showSuccessFields(result)
       } catch (err) {
         setError(err.message || '识别失败，请重试')
@@ -250,6 +258,20 @@ export default function EntryLeft({ onImageRecognized, onBatchRecognized, llmCon
         const imageResults = await recognizeBatchImage(allImageFiles, llmConfig.vision, (text) => {
           setProgressText(text)
         })
+
+        // Crop individual question images from source pages using bbox
+        setProgressText('正在裁切题目图片...')
+        for (let i = 0; i < imageResults.length; i++) {
+          const r = imageResults[i]
+          if (r.bbox && r.imageUrl && r.imageUrl.startsWith('data:')) {
+            try {
+              imageResults[i] = { ...r, imageUrl: await cropImage(r.imageUrl, r.bbox) }
+            } catch (err) {
+              console.warn('Crop failed for question:', err.message)
+            }
+          }
+        }
+
         allResults.push(...imageResults)
       }
 

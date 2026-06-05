@@ -25,6 +25,7 @@ db.exec(`
     exam_name       TEXT NOT NULL DEFAULT '',
     image_url       TEXT NOT NULL DEFAULT '',
     image_position  TEXT NOT NULL DEFAULT 'right',
+    has_handwriting INTEGER NOT NULL DEFAULT 0,
     created_at      INTEGER NOT NULL,
     updated_at      INTEGER NOT NULL
   );
@@ -40,6 +41,7 @@ try { db.exec(`ALTER TABLE questions ADD COLUMN image_position TEXT NOT NULL DEF
 // Migration: add semester and unit columns if missing
 try { db.exec(`ALTER TABLE questions ADD COLUMN semester TEXT NOT NULL DEFAULT ''`) } catch { /* column exists */ }
 try { db.exec(`ALTER TABLE questions ADD COLUMN unit TEXT NOT NULL DEFAULT ''`) } catch { /* column exists */ }
+try { db.exec(`ALTER TABLE questions ADD COLUMN has_handwriting INTEGER NOT NULL DEFAULT 0`) } catch { /* column exists */ }
 
 // Field mapping: camelCase <-> snake_case
 function toDb(q) {
@@ -59,6 +61,7 @@ function toDb(q) {
     exam_name: q.examName || '',
     image_url: q.imageUrl || '',
     image_position: q.imagePosition || 'right',
+    has_handwriting: q.hasHandwriting ? 1 : 0,
     created_at: q.createdAt,
     updated_at: q.updatedAt,
   }
@@ -81,6 +84,7 @@ function fromDb(row) {
     examName: row.exam_name,
     imageUrl: row.image_url,
     imagePosition: row.image_position || 'right',
+    hasHandwriting: !!row.has_handwriting,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -93,9 +97,9 @@ const stmts = {
   upsert: db.prepare(`
     INSERT OR REPLACE INTO questions
       (id, content, answer, solution, grade, semester, unit, topic, question_type, difficulty,
-       tags, notes, exam_name, image_url, image_position, created_at, updated_at)
+       tags, notes, exam_name, image_url, image_position, has_handwriting, created_at, updated_at)
     VALUES (@id, @content, @answer, @solution, @grade, @semester, @unit, @topic, @question_type,
-       @difficulty, @tags, @notes, @exam_name, @image_url, @image_position, @created_at, @updated_at)
+       @difficulty, @tags, @notes, @exam_name, @image_url, @image_position, @has_handwriting, @created_at, @updated_at)
   `),
   delete: db.prepare('DELETE FROM questions WHERE id = ?'),
   count: db.prepare('SELECT COUNT(*) as count FROM questions'),

@@ -80,6 +80,7 @@ export function createQuestion(data = {}) {
     examName: data.examName || '',
     imageUrl: data.imageUrl || '',
     imagePosition: data.imagePosition || 'right', // 'right' | 'below' | 'bottom-right'
+    hasHandwriting: data.hasHandwriting || false,
     createdAt: data.createdAt || now,
     updatedAt: data.updatedAt || now,
   }
