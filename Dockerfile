@@ -3,7 +3,7 @@ FROM node:20-alpine AS build
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm install --prefer-offline || npm install
 COPY . .
 RUN npm run build
 
